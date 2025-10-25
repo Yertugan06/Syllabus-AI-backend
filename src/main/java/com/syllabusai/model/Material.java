@@ -1,9 +1,13 @@
 package com.syllabusai.model;
 
+import lombok.*;
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "materials")
+@Getter
+@Setter
+@NoArgsConstructor
 public class Material {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
