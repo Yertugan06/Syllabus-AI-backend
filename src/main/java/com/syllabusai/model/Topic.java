@@ -6,9 +6,10 @@ import lombok.*;
 
 @Entity
 @Table(name = "topics")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Topic {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

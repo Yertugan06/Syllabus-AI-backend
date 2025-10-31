@@ -7,9 +7,10 @@ import java.util.List;
 
 @Entity
 @Table(name = "syllabi")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Syllabus {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

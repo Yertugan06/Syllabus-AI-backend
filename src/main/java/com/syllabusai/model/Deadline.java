@@ -6,6 +6,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "deadlines")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Deadline {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

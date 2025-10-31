@@ -5,9 +5,10 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "materials")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Material {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
