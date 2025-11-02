@@ -44,4 +44,4 @@ public class SyllabusController {
         syllabusService.deleteSyllabus(id);
         return ResponseEntity.noContent().build();
     }
-}
+}☺
