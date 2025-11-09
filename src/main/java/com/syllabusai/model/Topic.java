@@ -22,7 +22,7 @@ public class Topic {
     @Column(name = "difficulty_level")
     private String difficultyLevel;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "syllabus_id", nullable = false)
     private Syllabus syllabus;
 

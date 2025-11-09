@@ -1,10 +1,13 @@
 package com.syllabusai.controller;
 
 import com.syllabusai.dto.SyllabusDTO;
-import lombok.*;
+import com.syllabusai.service.SyllabusService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/syllabus")
@@ -44,4 +47,9 @@ public class SyllabusController {
         syllabusService.deleteSyllabus(id);
         return ResponseEntity.noContent().build();
     }
-}☺
+
+    @GetMapping
+    public ResponseEntity<List<SyllabusDTO>> getAllSyllabi() {
+        return ResponseEntity.ok(syllabusService.getAllSyllabi());
+    }
+}

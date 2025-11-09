@@ -18,3 +18,33 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+  profiles:
+    active: dev
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+logging:
+  level:
+    com.syllabusai: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Pattern-specific configurations
+syllabus:
+  decorator:
+    enable-date-formatting: true
+    enable-topic-enrichment: true
+    enable-deadline-highlighting: true
+  observer:
+    enable-websocket: true
+    enable-logging: true
+  strategy:
+    default: regex
+    fallback: ai

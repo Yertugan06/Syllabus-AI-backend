@@ -19,7 +19,7 @@ public class Deadline {
     private LocalDateTime date;
     private String type;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "syllabus_id", nullable = false)
     private Syllabus syllabus;
 }

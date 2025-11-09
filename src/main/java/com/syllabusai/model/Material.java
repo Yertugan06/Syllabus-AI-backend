@@ -18,7 +18,7 @@ public class Material {
     private String type;
     private String link;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "syllabus_id", nullable = false)
     private Syllabus syllabus;
 }
