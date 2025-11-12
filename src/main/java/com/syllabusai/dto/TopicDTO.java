@@ -1,16 +1,19 @@
 package com.syllabusai.dto;
 
-import lombok.*;
+import com.syllabusai.model.Topic;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-
 public class TopicDTO {
     private Long id;
     private String title;
     private String description;
     private Integer week;
-    private String difficultyLevel;
+    private Topic.DifficultyLevel difficultyLevel;  // Use enum from entity
 }

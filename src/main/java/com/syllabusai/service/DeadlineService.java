@@ -1,35 +1,28 @@
 package com.syllabusai.service;
 
-import com.syllabusai.dto.DeadlineDTO;
-import com.syllabusai.mapper.DeadlineMapper;
 import com.syllabusai.model.Deadline;
 import com.syllabusai.repository.DeadlineRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class DeadlineService {
 
     private final DeadlineRepository deadlineRepository;
 
-    public DeadlineService(DeadlineRepository deadlineRepository) {
-        this.deadlineRepository = deadlineRepository;
-    }
-
-    public Deadline saveDeadline(Deadline deadline) {
-        return deadlineRepository.save(deadline);
-    }
-
     public List<Deadline> getDeadlinesBySyllabusId(Long syllabusId) {
-        return deadlineRepository.findBySyllabusId(syllabusId);
+        return deadlineRepository.findBySyllabusIdOrderByDateAsc(syllabusId);
     }
 
-    public DeadlineDTO toDTO(Deadline deadline) {
-        return DeadlineMapper.toDTO(deadline);
-    }
-
-    public List<Deadline> saveAll(List<Deadline> deadlines) {
-        return deadlineRepository.saveAll(deadlines);
+    public List<Deadline> getUpcomingDeadlines(Long syllabusId) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime nextMonth = now.plusMonths(1);
+        return deadlineRepository.findUpcomingDeadlines(syllabusId, now, nextMonth);
     }
 }

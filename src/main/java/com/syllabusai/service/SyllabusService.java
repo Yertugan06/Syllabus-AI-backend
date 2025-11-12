@@ -1,167 +1,182 @@
 package com.syllabusai.service;
 
-import com.syllabusai.decorator.*;
-import com.syllabusai.observer.FileProcessingSubject;
-import com.syllabusai.adapter.AIService;
-import com.syllabusai.adapter.CalendarService;
-import com.syllabusai.builder.SyllabusBuilder;
-import com.syllabusai.strategy.ExtractionContext;
 import com.syllabusai.dto.SyllabusDTO;
-import com.syllabusai.mapper.SyllabusMapper;
-import com.syllabusai.model.Syllabus;
-import com.syllabusai.parser.ParserFactory;
+import com.syllabusai.exception.SyllabusProcessingException;
+import com.syllabusai.model.*;
+import com.syllabusai.observer.FileProcessingSubject;
 import com.syllabusai.parser.SyllabusParser;
-import com.syllabusai.repository.SyllabusRepository;
+import com.syllabusai.parser.SyllabusParserFactory;
+import com.syllabusai.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+@Slf4j
 @Service
-public class EnhancedSyllabusService {
+@Transactional
+@RequiredArgsConstructor
+public class SyllabusService {
 
-    private final ParserFactory parserFactory;
     private final SyllabusRepository syllabusRepository;
-    private final TopicService topicService;
-    private final DeadlineService deadlineService;
-    private final MaterialService materialService;
-    private final UserService userService;
+    private final TopicRepository topicRepository;
+    private final MaterialRepository materialRepository;
+    private final DeadlineRepository deadlineRepository;
+    private final UserRepository userRepository;
+    private final SyllabusParserFactory parserFactory;
     private final FileProcessingSubject progressSubject;
-    private final AIService aiService;
-    private final CalendarService calendarService;
-    private final ExtractionContext extractionContext;
 
-    public EnhancedSyllabusService(ParserFactory parserFactory,
-                                   SyllabusRepository syllabusRepository,
-                                   TopicService topicService,
-                                   DeadlineService deadlineService,
-                                   MaterialService materialService,
-                                   UserService userService,
-                                   FileProcessingSubject progressSubject,
-                                   AIService aiService,
-                                   CalendarService calendarService,
-                                   ExtractionContext extractionContext) {
-        this.parserFactory = parserFactory;
-        this.syllabusRepository = syllabusRepository;
-        this.topicService = topicService;
-        this.deadlineService = deadlineService;
-        this.materialService = materialService;
-        this.userService = userService;
-        this.progressSubject = progressSubject;
-        this.aiService = aiService;
-        this.calendarService = calendarService;
-        this.extractionContext = extractionContext;
-    }
+    public SyllabusDTO uploadAndParse(MultipartFile file, String userEmail) {
+        log.info("Processing syllabus upload for user: {}, file: {}", userEmail, file.getOriginalFilename());
 
-    public SyllabusDTO uploadAndParseWithProgress(MultipartFile file) {
         try {
-            progressSubject.notifyProgress(10, "Starting file processing...");
+            progressSubject.notifyProgress(10, "Starting file processing");
 
-            // Validate file
-            if (file.isEmpty()) {
-                progressSubject.notifyError("File is empty");
-                throw new RuntimeException("File is empty");
-            }
+            // Validate input
+            validateFile(file);
 
-            progressSubject.notifyProgress(30, "Detecting university type...");
+            // Find user
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new SyllabusProcessingException("User not found: " + userEmail));
 
-            // Get appropriate parser using Factory Method
+            progressSubject.notifyProgress(30, "User validated, starting PDF parsing");
+
+            // Parse syllabus using Factory Method pattern
             SyllabusParser parser = parserFactory.createParser(file);
+            Syllabus parsedSyllabus = parser.parse(file);
 
-            progressSubject.notifyProgress(50, "Parsing syllabus content...");
+            progressSubject.notifyProgress(60, "PDF parsed successfully, saving data");
 
-            // Parse the syllabus
-            Syllabus syllabus = parser.parse(file);
+            // Set user and save syllabus FIRST
+            parsedSyllabus.setUser(user);
+            Syllabus savedSyllabus = syllabusRepository.save(parsedSyllabus);
+            log.info("Initial syllabus saved with ID: {}", savedSyllabus.getId());
 
-            progressSubject.notifyProgress(70, "Enhancing content with decorators...");
+            // FIXED: Save child entities with proper syllabus relationships
+            saveChildEntitiesWithRelations(savedSyllabus);
 
-            // Apply Decorator Pattern for content enhancement
-            SyllabusContent basicContent = new BasicSyllabusContent(syllabus, "Raw content would go here");
-            SyllabusContent enhancedContent = new DateFormattedDecorator(
-                    new TopicEnrichmentDecorator(
-                            new DeadlineHighlightDecorator(basicContent)
-                    )
-            );
+            // Return simple DTO
+            SyllabusDTO result = SyllabusDTO.builder()
+                    .id(savedSyllabus.getId())
+                    .fileName(savedSyllabus.getFilename())
+                    .uploadDate(savedSyllabus.getUploadDate())
+                    .status("PROCESSED")
+                    .build();
 
-            // Use Builder Pattern to construct syllabus
-            SyllabusBuilder builder = new SyllabusBuilder()
-                    .withFilename(file.getOriginalFilename())
-                    .withUser(userService.getOrCreateDefaultUser())
-                    .withStatus("PARSED")
-                    .withTopics(enhancedContent.getTopics())
-                    .withDeadlines(syllabus.getDeadlines())
-                    .withMaterials(syllabus.getMaterials());
+            progressSubject.notifyProgress(100, "Syllabus processed successfully");
+            progressSubject.notifyComplete("Syllabus ID: " + savedSyllabus.getId());
 
-            Syllabus builtSyllabus = builder.build();
-
-            progressSubject.notifyProgress(80, "Saving to database...");
-
-            // Save to database
-            Syllabus savedSyllabus = syllabusRepository.save(builtSyllabus);
-
-            // Save related entities
-            if (savedSyllabus.getTopics() != null) {
-                topicService.saveAll(savedSyllabus.getTopics());
-            }
-
-            if (savedSyllabus.getDeadlines() != null) {
-                deadlineService.saveAll(savedSyllabus.getDeadlines());
-
-                // Use Adapter Pattern to sync with calendar
-                savedSyllabus.getDeadlines().forEach(calendarService::addDeadline);
-            }
-
-            if (savedSyllabus.getMaterials() != null) {
-                materialService.saveAll(savedSyllabus.getMaterials());
-            }
-
-            progressSubject.notifyProgress(100, "Processing complete!");
-            progressSubject.notifyComplete("Syllabus processed successfully");
-
-            return SyllabusMapper.toDTO(savedSyllabus);
+            log.info("Syllabus processed successfully: ID {}", savedSyllabus.getId());
+            return result;
 
         } catch (Exception e) {
-            progressSubject.notifyError("Failed to process syllabus: " + e.getMessage());
-            throw new RuntimeException("Failed to parse syllabus: " + e.getMessage(), e);
+            log.error("Syllabus upload failed for user: {}, file: {}", userEmail, file.getOriginalFilename(), e);
+            progressSubject.notifyError("Upload failed: " + e.getMessage());
+            throw new SyllabusProcessingException("Failed to upload and parse syllabus: " + e.getMessage(), e);
         }
     }
 
-    // Other methods remain the same...
+    /**
+     * FIXED: Completely rewritten to ensure syllabus relationships are set
+     */
+    private void saveChildEntitiesWithRelations(Syllabus syllabus) {
+        log.info("Saving child entities for syllabus ID: {}", syllabus.getId());
+
+        // Save topics
+        if (syllabus.getTopics() != null && !syllabus.getTopics().isEmpty()) {
+            log.info("Processing {} topics", syllabus.getTopics().size());
+            for (Topic topic : syllabus.getTopics()) {
+                topic.setSyllabus(syllabus); // Set the foreign key
+                log.debug("Set syllabus for topic: {}", topic.getTitle());
+            }
+            List<Topic> savedTopics = topicRepository.saveAll(syllabus.getTopics());
+            log.info("Successfully saved {} topics", savedTopics.size());
+        }
+
+        // Save deadlines - FIXED: This was the main issue
+        if (syllabus.getDeadlines() != null && !syllabus.getDeadlines().isEmpty()) {
+            log.info("Processing {} deadlines", syllabus.getDeadlines().size());
+            for (Deadline deadline : syllabus.getDeadlines()) {
+                deadline.setSyllabus(syllabus); // Set the foreign key
+                log.debug("Set syllabus for deadline: {}", deadline.getTitle());
+            }
+            List<Deadline> savedDeadlines = deadlineRepository.saveAll(syllabus.getDeadlines());
+            log.info("Successfully saved {} deadlines", savedDeadlines.size());
+        }
+
+        // Save materials
+        if (syllabus.getMaterials() != null && !syllabus.getMaterials().isEmpty()) {
+            log.info("Processing {} materials", syllabus.getMaterials().size());
+            for (Material material : syllabus.getMaterials()) {
+                material.setSyllabus(syllabus); // Set the foreign key
+                log.debug("Set syllabus for material: {}", material.getTitle());
+            }
+            List<Material> savedMaterials = materialRepository.saveAll(syllabus.getMaterials());
+            log.info("Successfully saved {} materials", savedMaterials.size());
+        }
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new SyllabusProcessingException("File is empty");
+        }
+        if (!"application/pdf".equals(file.getContentType())) {
+            throw new SyllabusProcessingException("File must be a PDF. Received: " + file.getContentType());
+        }
+        if (file.getSize() > 10 * 1024 * 1024) {
+            throw new SyllabusProcessingException("File size exceeds 10MB limit");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<Syllabus> getUserSyllabi(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new SyllabusProcessingException("User not found"));
+        return syllabusRepository.findByUserIdOrderByUploadDateDesc(user.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Topic> getTopicsBySyllabusId(Long syllabusId) {
+        return topicRepository.findBySyllabusIdOrderByWeekAsc(syllabusId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Material> getMaterialsBySyllabusId(Long syllabusId) {
+        return materialRepository.findBySyllabusId(syllabusId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Deadline> getDeadlinesBySyllabusId(Long syllabusId) {
+        return deadlineRepository.findBySyllabusIdOrderByDateAsc(syllabusId);
+    }
+
+    @Transactional(readOnly = true)
     public SyllabusDTO getSyllabus(Long id) {
+        log.debug("Fetching syllabus with ID: {}", id);
+
         Syllabus syllabus = syllabusRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Syllabus not found with id: " + id));
-        return SyllabusMapper.toDTO(syllabus);
+                .orElseThrow(() -> new SyllabusProcessingException("Syllabus not found with id: " + id));
+
+        return SyllabusDTO.builder()
+                .id(syllabus.getId())
+                .fileName(syllabus.getFilename())
+                .uploadDate(syllabus.getUploadDate())
+                .status("PROCESSED")
+                .build();
     }
 
-    public List<TopicDTO> getTopicsBySyllabusId(Long syllabusId) {
-        return topicService.getTopicsBySyllabusId(syllabusId).stream()
-                .map(topicService::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<MaterialDTO> getMaterialsBySyllabusId(Long syllabusId) {
-        return materialService.getMaterialsBySyllabusId(syllabusId).stream()
-                .map(materialService::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<DeadlineDTO> getDeadlinesBySyllabusId(Long syllabusId) {
-        return deadlineService.getDeadlinesBySyllabusId(syllabusId).stream()
-                .map(deadlineService::toDTO)
-                .collect(Collectors.toList());
-    }
-
+    @Transactional
     public void deleteSyllabus(Long id) {
-        if (!syllabusRepository.existsById(id)) {
-            throw new RuntimeException("Syllabus not found with id: " + id);
-        }
-        syllabusRepository.deleteById(id);
-    }
+        log.info("Deleting syllabus with ID: {}", id);
 
-    public List<SyllabusDTO> getAllSyllabi() {
-        return syllabusRepository.findAll().stream()
-                .map(SyllabusMapper::toDTO)
-                .collect(Collectors.toList());
+        if (!syllabusRepository.existsById(id)) {
+            throw new SyllabusProcessingException("Syllabus not found with id: " + id);
+        }
+
+        syllabusRepository.deleteById(id);
+        log.info("Syllabus deleted successfully: {}", id);
     }
 }
