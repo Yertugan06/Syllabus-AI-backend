@@ -1,6 +1,5 @@
 package com.syllabusai.parser;
 
-
 import com.syllabusai.adapter.AIService;
 import com.syllabusai.model.*;
 import com.syllabusai.strategy.ExtractionContext;
@@ -49,11 +48,11 @@ public class GenericSyllabusParser implements SyllabusParser {
                 .build();
 
         try {
-            // Use strategy context for extraction
+            // Extract sequentially with delays to avoid rate limits
             extractWithStrategies(syllabus, textContent);
 
         } catch (Exception e) {
-            log.error("Parsing failed: {}", e.getMessage());
+            log.error("Parsing failed: {}", e.getMessage(), e);
             syllabus.setStatus("ERROR");
             throw e;
         }
@@ -67,27 +66,43 @@ public class GenericSyllabusParser implements SyllabusParser {
     }
 
     /**
-     * Extract content using strategy pattern
+     * Extract content using strategy pattern with delays between API calls
      */
-    private void extractWithStrategies(Syllabus syllabus, String textContent) {
-        log.debug("Starting strategy-based extraction");
+    private void extractWithStrategies(Syllabus syllabus, String textContent) throws InterruptedException {
+        log.debug("Starting sequential strategy-based extraction");
 
-        // Extract using context that selects best strategy
+        // Extract topics first
+        log.info("=== Extracting TOPICS ===");
         List<Topic> topics = extractionContext.extractTopics(textContent);
-        List<Deadline> deadlines = extractionContext.extractDeadlines(textContent);
-        List<Material> materials = extractionContext.extractMaterials(textContent);
-
         syllabus.getTopics().addAll(topics);
-        syllabus.getDeadlines().addAll(deadlines);
-        syllabus.getMaterials().addAll(materials);
+        log.info("Extracted {} topics", topics.size());
 
-        log.debug("Strategy extraction completed: {} topics, {} deadlines, {} materials",
+        // Small delay to avoid rate limiting
+        Thread.sleep(1000);
+
+        // Extract deadlines
+        log.info("=== Extracting DEADLINES ===");
+        List<Deadline> deadlines = extractionContext.extractDeadlines(textContent);
+        syllabus.getDeadlines().addAll(deadlines);
+        log.info("Extracted {} deadlines", deadlines.size());
+
+        // Small delay
+        Thread.sleep(1000);
+
+        // Extract materials
+        log.info("=== Extracting MATERIALS ===");
+        List<Material> materials = extractionContext.extractMaterials(textContent);
+        syllabus.getMaterials().addAll(materials);
+        log.info("Extracted {} materials", materials.size());
+
+        log.info("Sequential extraction completed: {} topics, {} deadlines, {} materials",
                 topics.size(), deadlines.size(), materials.size());
+
+        if (!topics.isEmpty() || !deadlines.isEmpty() || !materials.isEmpty()) {
+            log.info("Extracted entities will have relationships established by SyllabusService");
+        }
     }
 
-    /**
-     * Extract text from PDF file using PDFBox
-     */
     private String extractTextFromPDF(MultipartFile file) throws Exception {
         log.debug("Extracting text from PDF: {}", file.getOriginalFilename());
 

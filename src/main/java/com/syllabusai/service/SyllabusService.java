@@ -50,13 +50,22 @@ public class SyllabusService {
 
             progressSubject.notifyProgress(60, "PDF parsed successfully, saving data");
 
-            // Set user and save syllabus FIRST
+            // Set user
             parsedSyllabus.setUser(user);
-            Syllabus savedSyllabus = syllabusRepository.save(parsedSyllabus);
-            log.info("Initial syllabus saved with ID: {}", savedSyllabus.getId());
 
-            // FIXED: Save child entities with proper syllabus relationships
-            saveChildEntitiesWithRelations(savedSyllabus);
+            // CRITICAL FIX: Properly establish bidirectional relationships
+            // This ensures the foreign key is set BEFORE save
+            establishRelationships(parsedSyllabus);
+
+            // Save everything at once - cascade will handle children
+            Syllabus savedSyllabus = syllabusRepository.save(parsedSyllabus);
+            log.info("Syllabus saved successfully with ID: {}", savedSyllabus.getId());
+
+            // Log what was saved
+            log.info("Saved {} topics, {} deadlines, {} materials",
+                    savedSyllabus.getTopics().size(),
+                    savedSyllabus.getDeadlines().size(),
+                    savedSyllabus.getMaterials().size());
 
             // Return simple DTO
             SyllabusDTO result = SyllabusDTO.builder()
@@ -80,43 +89,40 @@ public class SyllabusService {
     }
 
     /**
-     * FIXED: Completely rewritten to ensure syllabus relationships are set
+     * CRITICAL: Establish bidirectional relationships before saving
+     * This ensures JPA knows about the relationships and sets foreign keys correctly
      */
-    private void saveChildEntitiesWithRelations(Syllabus syllabus) {
-        log.info("Saving child entities for syllabus ID: {}", syllabus.getId());
+    private void establishRelationships(Syllabus syllabus) {
+        log.info("Establishing bidirectional relationships for syllabus");
 
-        // Save topics
-        if (syllabus.getTopics() != null && !syllabus.getTopics().isEmpty()) {
+        // Set syllabus reference on all topics
+        if (syllabus.getTopics() != null) {
             log.info("Processing {} topics", syllabus.getTopics().size());
             for (Topic topic : syllabus.getTopics()) {
-                topic.setSyllabus(syllabus); // Set the foreign key
-                log.debug("Set syllabus for topic: {}", topic.getTitle());
+                topic.setSyllabus(syllabus);
+                log.debug("Linked topic '{}' to syllabus", topic.getTitle());
             }
-            List<Topic> savedTopics = topicRepository.saveAll(syllabus.getTopics());
-            log.info("Successfully saved {} topics", savedTopics.size());
         }
 
-        // Save deadlines - FIXED: This was the main issue
-        if (syllabus.getDeadlines() != null && !syllabus.getDeadlines().isEmpty()) {
+        // Set syllabus reference on all deadlines
+        if (syllabus.getDeadlines() != null) {
             log.info("Processing {} deadlines", syllabus.getDeadlines().size());
             for (Deadline deadline : syllabus.getDeadlines()) {
-                deadline.setSyllabus(syllabus); // Set the foreign key
-                log.debug("Set syllabus for deadline: {}", deadline.getTitle());
+                deadline.setSyllabus(syllabus);
+                log.debug("Linked deadline '{}' to syllabus", deadline.getTitle());
             }
-            List<Deadline> savedDeadlines = deadlineRepository.saveAll(syllabus.getDeadlines());
-            log.info("Successfully saved {} deadlines", savedDeadlines.size());
         }
 
-        // Save materials
-        if (syllabus.getMaterials() != null && !syllabus.getMaterials().isEmpty()) {
+        // Set syllabus reference on all materials
+        if (syllabus.getMaterials() != null) {
             log.info("Processing {} materials", syllabus.getMaterials().size());
             for (Material material : syllabus.getMaterials()) {
-                material.setSyllabus(syllabus); // Set the foreign key
-                log.debug("Set syllabus for material: {}", material.getTitle());
+                material.setSyllabus(syllabus);
+                log.debug("Linked material '{}' to syllabus", material.getTitle());
             }
-            List<Material> savedMaterials = materialRepository.saveAll(syllabus.getMaterials());
-            log.info("Successfully saved {} materials", savedMaterials.size());
         }
+
+        log.info("Bidirectional relationships established successfully");
     }
 
     private void validateFile(MultipartFile file) {

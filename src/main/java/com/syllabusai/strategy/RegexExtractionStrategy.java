@@ -14,18 +14,19 @@ import java.util.regex.Pattern;
 @Component
 public class RegexExtractionStrategy implements ExtractionStrategy {
 
+    // Improved patterns
     private static final Pattern TOPIC_PATTERN = Pattern.compile(
-            "(?i)(?:week|lecture|topic|chapter|module)\\s*(\\d+)[:\\-]?\\s*([^\\n]{5,100})",
+            "(?i)(?:week|lecture|topic|chapter|module|session|lesson)\\s*(\\d+)[:\\-\\.]?\\s*([^\\n]{5,200})",
             Pattern.MULTILINE
     );
 
     private static final Pattern DEADLINE_PATTERN = Pattern.compile(
-            "(?i)(assignment|homework|exam|test|quiz|project).*?(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})",
+            "(?i)(assignment|homework|exam|test|quiz|project|midterm|final|endterm).*?(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})",
             Pattern.MULTILINE
     );
 
     private static final Pattern MATERIAL_PATTERN = Pattern.compile(
-            "(?i)(textbook|reading|book|material|resource)[:\\-]\\s*\"?([^\"]+)\"?",
+            "(?i)(textbook|book|reading|resource|material|reference)[:\\-]\\s*([^\\n]{5,200})",
             Pattern.MULTILINE
     );
 
@@ -49,14 +50,15 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
                             .build();
                     topics.add(topic);
                     count++;
+                    log.debug("Extracted topic: Week {} - {}", week, title);
                 }
             } catch (NumberFormatException e) {
                 log.debug("Invalid week number: {}", matcher.group(1));
             }
         }
 
-        log.debug("Regex strategy extracted {} topics", topics.size());
-        return topics;
+        log.info("Regex strategy extracted {} topics", topics.size());
+        return topics; // Return empty list if none found - don't create defaults
     }
 
     @Override
@@ -84,17 +86,20 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
                         .build();
                 deadlines.add(deadline);
                 count++;
+                log.debug("Extracted deadline: {} on {}", type, date);
 
             } catch (Exception e) {
                 log.debug("Invalid deadline format", e);
             }
         }
 
+        // For a 10-week program, create standard deadlines if none found
         if (deadlines.isEmpty()) {
-            deadlines.addAll(createDefaultDeadlines());
+            log.info("No explicit deadlines found, creating standard 10-week program deadlines");
+            deadlines.addAll(createStandardDeadlines());
         }
 
-        log.debug("Regex strategy extracted {} deadlines", deadlines.size());
+        log.info("Regex strategy extracted {} deadlines", deadlines.size());
         return deadlines;
     }
 
@@ -107,19 +112,22 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
             String type = matcher.group(1);
             String title = matcher.group(2).trim();
 
+            // Skip if title is too short or generic
+            if (title.length() < 10 || isGenericMaterial(title)) {
+                continue;
+            }
+
             Material material = Material.builder()
                     .title(title)
                     .type(mapMaterialType(type))
                     .link("")
                     .build();
             materials.add(material);
+            log.debug("Extracted material: {}", title);
         }
 
-        if (materials.isEmpty()) {
-            materials.add(createDefaultMaterial());
-        }
-
-        log.debug("Regex strategy extracted {} materials", materials.size());
+        // DON'T create default materials - return empty if none found
+        log.info("Regex strategy extracted {} materials", materials.size());
         return materials;
     }
 
@@ -130,7 +138,28 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
 
     @Override
     public int getPriority() {
-        return 50;
+        return 50; // Lower priority than AI (higher number = lower priority)
+    }
+
+    @Override
+    public int getConfidence(String content) {
+        if (content == null || content.isEmpty()) {
+            return 0;
+        }
+
+        // Calculate confidence based on pattern matches
+        int confidence = 30; // Base confidence
+
+        if (TOPIC_PATTERN.matcher(content).find()) confidence += 20;
+        if (DEADLINE_PATTERN.matcher(content).find()) confidence += 20;
+        if (MATERIAL_PATTERN.matcher(content).find()) confidence += 15;
+
+        // Bonus for structured content
+        if (content.toLowerCase().contains("week") && content.toLowerCase().contains("topic")) {
+            confidence += 15;
+        }
+
+        return Math.min(confidence, 100);
     }
 
     @Override
@@ -141,53 +170,66 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
     private boolean isValidTopic(String title) {
         return title.length() >= 5 &&
                 !title.toLowerCase().contains("syllabus") &&
-                !title.toLowerCase().contains("introduction to course");
+                !title.toLowerCase().contains("introduction to course") &&
+                !title.toLowerCase().contains("table of contents");
+    }
+
+    private boolean isGenericMaterial(String title) {
+        String lower = title.toLowerCase();
+        return lower.contains("see above") ||
+                lower.contains("as needed") ||
+                lower.contains("various") ||
+                lower.length() < 10;
     }
 
     private Deadline.DeadlineType mapDeadlineType(String type) {
-        switch (type.toLowerCase()) {
-            case "exam": case "test": return Deadline.DeadlineType.EXAM;
-            case "quiz": return Deadline.DeadlineType.QUIZ;
-            case "project": return Deadline.DeadlineType.PROJECT;
-            default: return Deadline.DeadlineType.ASSIGNMENT;
+        String lower = type.toLowerCase();
+        if (lower.contains("exam") || lower.contains("test") ||
+                lower.contains("midterm") || lower.contains("final") ||
+                lower.contains("endterm")) {
+            return Deadline.DeadlineType.EXAM;
         }
+        if (lower.contains("quiz")) return Deadline.DeadlineType.QUIZ;
+        if (lower.contains("project")) return Deadline.DeadlineType.PROJECT;
+        return Deadline.DeadlineType.ASSIGNMENT;
     }
 
     private Material.MaterialType mapMaterialType(String type) {
-        switch (type.toLowerCase()) {
-            case "textbook": case "book": return Material.MaterialType.TEXTBOOK;
-            case "video": return Material.MaterialType.VIDEO;
-            case "website": case "resource": return Material.MaterialType.WEBSITE;
-            default: return Material.MaterialType.READING;
+        String lower = type.toLowerCase();
+        if (lower.contains("textbook") || lower.contains("book")) {
+            return Material.MaterialType.TEXTBOOK;
         }
+        if (lower.contains("video")) return Material.MaterialType.VIDEO;
+        if (lower.contains("website") || lower.contains("resource")) {
+            return Material.MaterialType.WEBSITE;
+        }
+        return Material.MaterialType.READING;
     }
 
-    private List<Deadline> createDefaultDeadlines() {
+    /**
+     * Create standard deadlines for a 10-week program
+     * Week 5: Midterm
+     * Week 10: Final/Endterm
+     */
+    private List<Deadline> createStandardDeadlines() {
         List<Deadline> defaults = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
         defaults.add(Deadline.builder()
-                .title("Assignment 1")
-                .type(Deadline.DeadlineType.ASSIGNMENT)
-                .date(now.plusWeeks(2))
-                .description("First course assignment")
+                .title("Midterm Examination")
+                .type(Deadline.DeadlineType.EXAM)
+                .date(now.plusWeeks(5))
+                .description("Midterm exam at week 5")
                 .build());
 
         defaults.add(Deadline.builder()
-                .title("Midterm Examination")
+                .title("Final Examination")
                 .type(Deadline.DeadlineType.EXAM)
-                .date(now.plusWeeks(6))
-                .description("Midterm exam covering first half of course")
+                .date(now.plusWeeks(10))
+                .description("Final exam at week 10")
                 .build());
 
+        log.info("Created standard 10-week program deadlines");
         return defaults;
-    }
-
-    private Material createDefaultMaterial() {
-        return Material.builder()
-                .title("Course Textbook and Materials")
-                .type(Material.MaterialType.TEXTBOOK)
-                .link("")
-                .build();
     }
 }

@@ -1,11 +1,13 @@
 package com.syllabusai.strategy;
 
 import com.syllabusai.adapter.AIService;
+import com.syllabusai.adapter.GeminiAIAdapter;
 import com.syllabusai.model.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -20,8 +22,16 @@ public class AIExtractionStrategy implements ExtractionStrategy {
     private final AIService aiService;
     private final ObjectMapper objectMapper;
 
+    @Value("${gemini.api-key:demo-key-placeholder}")
+    private String apiKey;
+
     @Override
     public List<Topic> extractTopics(String content) {
+        if (isDemoMode()) {
+            log.warn("AI API key not configured, skipping AI extraction for topics");
+            return new ArrayList<>(); // Return empty so fallback can be used
+        }
+
         try {
             log.debug("Using AI strategy to extract topics");
             String aiResponse = aiService.extractTopics(content);
@@ -34,6 +44,11 @@ public class AIExtractionStrategy implements ExtractionStrategy {
 
     @Override
     public List<Deadline> extractDeadlines(String content) {
+        if (isDemoMode()) {
+            log.warn("AI API key not configured, skipping AI extraction for deadlines");
+            return new ArrayList<>(); // Return empty so fallback can be used
+        }
+
         try {
             log.debug("Using AI strategy to extract deadlines");
             String aiResponse = aiService.extractDeadlines(content);
@@ -46,6 +61,11 @@ public class AIExtractionStrategy implements ExtractionStrategy {
 
     @Override
     public List<Material> extractMaterials(String content) {
+        if (isDemoMode()) {
+            log.warn("AI API key not configured, skipping AI extraction for materials");
+            return new ArrayList<>(); // Return empty so fallback can be used
+        }
+
         try {
             log.debug("Using AI strategy to extract materials");
             String aiResponse = aiService.extractMaterials(content);
@@ -58,12 +78,28 @@ public class AIExtractionStrategy implements ExtractionStrategy {
 
     @Override
     public boolean supports(String content) {
-        return content != null && content.length() > 200;
+        boolean hasKey = !isDemoMode();
+        boolean hasContent = content != null && content.length() > 200;
+
+        if (!hasKey) {
+            log.warn("AI Strategy disabled - API key not configured. Current key: {}",
+                    apiKey != null ? apiKey.substring(0, Math.min(10, apiKey.length())) + "..." : "null");
+        }
+
+        return hasKey && hasContent;
     }
 
     @Override
     public int getPriority() {
-        return 1; // Highest priority
+        return isDemoMode() ? 999 : 1; // Lowest priority if in demo mode
+    }
+
+    @Override
+    public int getConfidence(String content) {
+        if (isDemoMode()) {
+            return 0; // Zero confidence in demo mode
+        }
+        return 85; // High confidence when properly configured
     }
 
     @Override
@@ -71,30 +107,58 @@ public class AIExtractionStrategy implements ExtractionStrategy {
         return "AI_EXTRACTION_STRATEGY";
     }
 
+    private boolean isDemoMode() {
+        return "demo-key-placeholder".equals(apiKey) ||
+                apiKey == null ||
+                apiKey.trim().isEmpty();
+    }
+
     @SuppressWarnings("unchecked")
     private <T> List<T> parseAIResponse(String jsonResponse, String type) {
         List<T> results = new ArrayList<>();
 
         try {
-            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+            // Clean the response - remove markdown code blocks if present
+            String cleanJson = jsonResponse.trim();
+            if (cleanJson.startsWith("```json")) {
+                cleanJson = cleanJson.substring(7);
+            }
+            if (cleanJson.startsWith("```")) {
+                cleanJson = cleanJson.substring(3);
+            }
+            if (cleanJson.endsWith("```")) {
+                cleanJson = cleanJson.substring(0, cleanJson.length() - 3);
+            }
+            cleanJson = cleanJson.trim();
+
+            log.debug("Parsing {} response, cleaned JSON length: {}", type, cleanJson.length());
+
+            JsonNode rootNode = objectMapper.readTree(cleanJson);
 
             if (rootNode.isArray()) {
+                log.debug("Found {} items in AI response array", rootNode.size());
                 for (JsonNode node : rootNode) {
                     try {
                         T entity = parseEntityFromAI(node, type);
                         if (entity != null) {
                             results.add(entity);
+                            log.debug("Successfully parsed {} entity: {}", type, entity);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to parse {} entity from AI response: {}", type, e.getMessage());
+                        log.debug("Problematic node: {}", node.toString());
                     }
                 }
+            } else {
+                log.warn("AI response is not a JSON array for type: {}", type);
             }
 
         } catch (Exception e) {
             log.error("Failed to parse AI {} response: {}", type, e.getMessage());
+            log.error("Raw response was: {}", jsonResponse);
         }
 
+        log.info("Parsed {} {} entities from AI response", results.size(), type);
         return results;
     }
 
@@ -103,20 +167,30 @@ public class AIExtractionStrategy implements ExtractionStrategy {
         try {
             switch (type) {
                 case "topics":
+                    int week = node.path("week").asInt(1);
+                    String title = node.path("title").asText("Unnamed Topic");
+                    String description = node.path("description").asText("");
+                    String difficulty = node.path("difficulty").asText("MEDIUM");
+
+                    log.debug("Parsing topic: Week {} - {}", week, title);
+
                     Topic topic = Topic.builder()
-                            .title(node.path("title").asText("Unnamed Topic"))
-                            .week(node.path("week").asInt(1))
-                            .description(node.path("description").asText(""))
-                            .difficultyLevel(parseDifficulty(node.path("difficulty").asText("MEDIUM")))
+                            .week(week)
+                            .title(truncate(title, 500))
+                            .description(description)
+                            .difficultyLevel(parseDifficulty(difficulty))
                             .build();
                     return (T) topic;
 
                 case "deadlines":
                     String dateStr = node.path("date").asText();
+                    if (dateStr.isEmpty()) {
+                        dateStr = node.path("dueDate").asText(); // Try alternative field name
+                    }
                     LocalDateTime date = parseDate(dateStr);
 
                     Deadline deadline = Deadline.builder()
-                            .title(node.path("title").asText("Unnamed Deadline"))
+                            .title(truncate(node.path("title").asText("Unnamed Deadline"), 500))
                             .type(parseDeadlineType(node.path("type").asText("ASSIGNMENT")))
                             .date(date != null ? date : LocalDateTime.now().plusWeeks(2))
                             .description(node.path("description").asText(""))
@@ -124,10 +198,25 @@ public class AIExtractionStrategy implements ExtractionStrategy {
                     return (T) deadline;
 
                 case "materials":
+                    // Try both "link" and "url" field names
+                    String link = node.path("link").asText("");
+                    if (link.isEmpty()) {
+                        link = node.path("url").asText("");
+                    }
+
+                    String materialTitle = node.path("title").asText("Unnamed Material");
+
+                    // Additional safety: truncate if still too long
+                    if (materialTitle.length() > 900) {
+                        log.warn("Material title too long ({}), truncating: {}",
+                                materialTitle.length(), materialTitle.substring(0, 50) + "...");
+                        materialTitle = truncate(materialTitle, 900);
+                    }
+
                     Material material = Material.builder()
-                            .title(node.path("title").asText("Unnamed Material"))
+                            .title(materialTitle)
                             .type(parseMaterialType(node.path("type").asText("READING")))
-                            .link(node.path("link").asText(""))
+                            .link(link)
                             .build();
                     return (T) material;
 
@@ -165,15 +254,31 @@ public class AIExtractionStrategy implements ExtractionStrategy {
     }
 
     private LocalDateTime parseDate(String dateStr) {
-        try {
-            return LocalDateTime.parse(dateStr + "T23:59:59");
-        } catch (Exception e1) {
-            try {
-                return LocalDateTime.parse(dateStr);
-            } catch (Exception e2) {
-                log.debug("Failed to parse date: {}", dateStr);
-                return null;
-            }
+        if (dateStr == null || dateStr.isEmpty()) {
+            return null;
         }
+
+        try {
+            // Try parsing as date only (YYYY-MM-DD)
+            if (dateStr.length() == 10) {
+                return LocalDateTime.parse(dateStr + "T23:59:59");
+            }
+            // Try parsing as full datetime
+            return LocalDateTime.parse(dateStr);
+        } catch (Exception e) {
+            log.debug("Failed to parse date: {}", dateStr);
+            return null;
+        }
+    }
+
+    /**
+     * Truncate string to maximum length
+     */
+    private String truncate(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) {
+            return text;
+        }
+        log.warn("Truncating text from {} to {} characters", text.length(), maxLength);
+        return text.substring(0, maxLength - 3) + "...";
     }
 }

@@ -1,13 +1,11 @@
 package com.syllabusai.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Check;
 
 import java.time.LocalDateTime;
-
 
 @Entity
 @Table(name = "deadlines", indexes = {
@@ -19,7 +17,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@Check(constraints = "date > CURRENT_TIMESTAMP")
 public class Deadline {
 
     @Id
@@ -27,7 +24,7 @@ public class Deadline {
     @EqualsAndHashCode.Include
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String title;
 
     @Column(nullable = false)

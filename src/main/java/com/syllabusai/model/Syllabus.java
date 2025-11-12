@@ -1,7 +1,6 @@
 package com.syllabusai.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -9,7 +8,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
 
 @Entity
 @Table(name = "syllabi")
@@ -30,7 +28,7 @@ public class Syllabus {
     @JsonIgnore
     private User user;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String filename;
 
     @Column(nullable = false)
@@ -39,7 +37,6 @@ public class Syllabus {
     @CreationTimestamp
     @Column(name = "upload_date", updatable = false)
     private LocalDateTime uploadDate;
-
 
     @OneToMany(mappedBy = "syllabus", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @Builder.Default
@@ -55,7 +52,6 @@ public class Syllabus {
     @Builder.Default
     @JsonIgnore
     private List<Deadline> deadlines = new ArrayList<>();
-
 
     public void addTopic(Topic topic) {
         topics.add(topic);

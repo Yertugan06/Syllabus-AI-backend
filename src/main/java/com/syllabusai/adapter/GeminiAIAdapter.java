@@ -11,6 +11,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,17 +27,20 @@ public class GeminiAIAdapter implements AIService {
     private String apiKey;
 
     private static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
-    private static final int MAX_CONTENT_LENGTH = 30000;
-    private static final Duration API_TIMEOUT = Duration.ofSeconds(30);
+    private static final int MAX_CONTENT_LENGTH = 25000;
+    private static final Duration API_TIMEOUT = Duration.ofSeconds(45);
+
+    // Default semester start date (September 1st of current year)
+    private static final LocalDate DEFAULT_SEMESTER_START = LocalDate.now().withMonth(9).withDayOfMonth(1);
 
     @Override
     public String extractTopics(String content) {
         if (isDemoMode()) {
-            log.info("Using demo mode for topic extraction");
-            return getDemoTopics();
+            log.warn("API key not configured, returning empty");
+            return "[]";
         }
 
-        String prompt = createTopicExtractionPrompt(content);
+        String prompt = createSmartTopicExtractionPrompt(content);
         log.debug("Extracting topics with AI, content length: {}", content.length());
         return callGeminiAPI(prompt);
     }
@@ -43,11 +48,11 @@ public class GeminiAIAdapter implements AIService {
     @Override
     public String extractDeadlines(String content) {
         if (isDemoMode()) {
-            log.info("Using demo mode for deadline extraction");
-            return getDemoDeadlines();
+            log.warn("API key not configured, returning empty");
+            return "[]";
         }
 
-        String prompt = createDeadlineExtractionPrompt(content);
+        String prompt = createSmartDeadlineExtractionPrompt(content);
         log.debug("Extracting deadlines with AI, content length: {}", content.length());
         return callGeminiAPI(prompt);
     }
@@ -55,142 +60,200 @@ public class GeminiAIAdapter implements AIService {
     @Override
     public String extractMaterials(String content) {
         if (isDemoMode()) {
-            log.info("Using demo mode for material extraction");
-            return getDemoMaterials();
+            log.warn("API key not configured, returning empty");
+            return "[]";
         }
 
-        String prompt = createMaterialExtractionPrompt(content);
+        String prompt = createSmartMaterialExtractionPrompt(content);
         log.debug("Extracting materials with AI, content length: {}", content.length());
         return callGeminiAPI(prompt);
     }
 
     @Override
     public String analyzeSyllabusStructure(String content) {
-        if (isDemoMode()) {
-            log.info("Using demo mode for syllabus structure analysis");
-            return getDemoSyllabusStructure();
-        }
-
+        if (isDemoMode()) return "{}";
         String prompt = createStructureAnalysisPrompt(content);
         return callGeminiAPI(prompt);
     }
 
     @Override
     public String generateText(String prompt) {
-        if (isDemoMode()) {
-            log.info("Using demo mode for text generation");
-            return "MEDIUM"; // Default response for difficulty analysis
-        }
+        if (isDemoMode()) return "MEDIUM";
         return callGeminiAPI(prompt);
     }
 
     @Override
     public String analyzeDocument(byte[] documentBytes, String mimeType, String prompt) {
-        log.warn("Direct document analysis not implemented, using demo mode");
-        if (isDemoMode()) {
-            return "Demo analysis result for document processing";
-        }
-        return callGeminiAPI(prompt + "\n[Document content would be processed here]");
+        return "{}";
     }
 
     private boolean isDemoMode() {
         return "demo-key-placeholder".equals(apiKey) || apiKey == null || apiKey.trim().isEmpty();
     }
 
-    private String createTopicExtractionPrompt(String content) {
+    /**
+     * Smart topic extraction that reads from course plan table
+     */
+    private String createSmartTopicExtractionPrompt(String content) {
+        String semesterStart = DEFAULT_SEMESTER_START.format(DateTimeFormatter.ISO_DATE);
+
         return """
-            Analyze the following university syllabus content and extract ALL topics, lectures, modules, and weekly content.
-            Return ONLY a valid JSON array with this exact structure. Do not include any other text:
+            You are analyzing a university syllabus document. Find the "Course Plan" or "Course Topics" table.
+            
+            Extract EACH WEEK'S topic as a SEPARATE entry. For each topic, rate its difficulty comparatively:
+            - EASY: Introductory concepts, simple patterns (like Builder, Factory)
+            - MEDIUM: More complex patterns requiring understanding of abstractions (like Adapter, Decorator, Strategy)
+            - HARD: Advanced patterns with complex relationships (like Bridge, Visitor, Abstract Factory)
+            
+            Return ONLY this JSON array:
             [
               {
-                "title": "Specific topic title (e.g., 'Introduction to Java Programming')",
-                "week": week_number (integer 1-16),
-                "description": "Brief description of what this topic covers",
-                "difficultyLevel": "EASY|MEDIUM|HARD"
+                "week": 1,
+                "title": "Builder",
+                "description": "Brief summary of what's covered in this week",
+                "difficulty": "EASY"
+              },
+              {
+                "week": 2,
+                "title": "Factory Method",
+                "description": "Brief summary",
+                "difficulty": "MEDIUM"
               }
             ]
             
-            Rules:
-            - If no topics found, return empty array []
-            - Estimate week numbers based on progression
-            - Determine difficulty based on topic complexity
-            - Extract ALL topics mentioned, even if not explicitly numbered
+            IMPORTANT:
+            - Extract ALL weeks (typically 1-10 or 1-15)
+            - Each week = separate JSON object
+            - Title should be concise (under 100 chars)
+            - Rate difficulty based on pattern complexity
+            - If no topics found, return []
             
-            Syllabus Content:
+            Syllabus content:
             """ + truncateContent(content);
     }
 
-    private String createDeadlineExtractionPrompt(String content) {
+    /**
+     * Smart deadline extraction with date calculation
+     */
+    private String createSmartDeadlineExtractionPrompt(String content) {
+        String semesterStart = DEFAULT_SEMESTER_START.format(DateTimeFormatter.ISO_DATE);
+
         return """
-            Analyze the following syllabus content and extract ALL deadlines, assignments, exams, quizzes, projects, and important dates.
-            Return ONLY a valid JSON array with this exact structure. Do not include any other text:
+            You are analyzing a university syllabus. Extract ALL deadlines, assignments, and exams.
+            
+            CALCULATE DATES:
+            - Assume semester starts on: %s
+            - Week 1 starts on semester start date
+            - Assignment due dates: End of the week they're assigned (e.g., Week 2 assignment due on Week 2 Sunday)
+            - Midterm: Usually around Week 4-5
+            - Final/Endterm: Usually Week 10
+            
+            Return ONLY this JSON array:
             [
               {
-                "title": "Specific assignment/exam name (e.g., 'Midterm Exam', 'Project Proposal')",
-                "dueDate": "YYYY-MM-DD" (estimate if only relative dates given),
-                "type": "ASSIGNMENT|EXAM|QUIZ|PROJECT|PRESENTATION|PAPER",
-                "description": "Brief description or requirements"
+                "week": 2,
+                "title": "Assignment 1: Builder Pattern",
+                "date": "2025-09-14",
+                "type": "ASSIGNMENT",
+                "description": "Implement Car.Builder in Java"
+              },
+              {
+                "week": 5,
+                "title": "Midterm Examination",
+                "date": "2025-10-05",
+                "type": "EXAM",
+                "description": "Covers patterns from weeks 1-5"
+              },
+              {
+                "week": 10,
+                "title": "Final Examination",
+                "date": "2025-11-09",
+                "type": "EXAM",
+                "description": "Comprehensive final exam"
               }
             ]
             
-            Rules:
-            - If no deadlines found, return empty array []
-            - Convert relative dates (e.g., 'Week 5', 'March 15th') to YYYY-MM-DD format
-            - Estimate dates based on academic calendar if needed
-            - Include all assessment items mentioned
+            IMPORTANT:
+            - Calculate actual dates based on semester start
+            - Week N ends 7*(N) days after start
+            - Each deadline = separate JSON object
+            - Type must be: ASSIGNMENT, EXAM, QUIZ, or PROJECT
+            - If document mentions "Midterm week" extract it
+            - If document mentions "Endterm week" extract it
             
-            Syllabus Content:
-            """ + truncateContent(content);
+            Syllabus content:
+            """.formatted(semesterStart) + truncateContent(content);
     }
 
-    private String createMaterialExtractionPrompt(String content) {
+    /**
+     * Smart material extraction - per topic
+     */
+    private String createSmartMaterialExtractionPrompt(String content) {
         return """
-            Analyze the following syllabus content and extract ALL learning materials, textbooks, readings, resources, and references.
-            Return ONLY a valid JSON array with this exact structure. Do not include any other text:
+            You are analyzing a university syllabus. Extract ALL learning materials/resources mentioned.
+            
+            For each TOPIC/WEEK, find its associated materials. If materials are listed in a table or
+            "Detailed Course Plan" section, extract them per week.
+            
+            Return ONLY this JSON array:
             [
               {
-                "title": "Material title (e.g., 'Introduction to Algorithms textbook')",
-                "type": "TEXTBOOK|READING|VIDEO|WEBSITE|SLIDES|EXERCISE",
-                "url": "URL or reference if provided, otherwise empty string"
+                "week": 1,
+                "title": "Head First Design Patterns - Builder Chapter",
+                "type": "TEXTBOOK",
+                "link": "",
+                "topicReference": "Builder Pattern"
+              },
+              {
+                "week": 1,
+                "title": "Refactoring.Guru - Builder Tutorial",
+                "type": "WEBSITE",
+                "link": "https://refactoring.guru/design-patterns/builder",
+                "topicReference": "Builder Pattern"
+              },
+              {
+                "week": 2,
+                "title": "Clean Code - Chapter 6",
+                "type": "READING",
+                "link": "",
+                "topicReference": "Factory Pattern"
               }
             ]
             
-            Rules:
-            - If no materials found, return empty array []
-            - Include required and recommended materials
-            - Categorize materials by type
-            - Extract ISBNs or author names if no clear title
+            IMPORTANT:
+            - Extract materials mentioned in "Resources:", "Reading:", or "Supporting reading:" sections
+            - Each material = separate JSON object
+            - Include week number to link material to topic
+            - Type must be: TEXTBOOK, READING, VIDEO, WEBSITE, or EXERCISE
+            - If NO materials section exists, return []
+            - Do NOT make up materials - only extract what's actually mentioned
             
-            Syllabus Content:
+            Syllabus content:
             """ + truncateContent(content);
     }
 
     private String createStructureAnalysisPrompt(String content) {
         return """
-            Analyze this syllabus document structure and provide metadata.
-            Return a JSON object with:
+            Extract basic course information:
             {
-              "courseTitle": "Extracted course title",
-              "courseCode": "Extracted course code if available",
-              "instructor": "Instructor name if available",
-              "credits": "Number of credits",
-              "semester": "Semester/term information",
-              "learningObjectives": ["array", "of", "objectives"],
-              "gradingBreakdown": {"Component": "Percentage"}
+              "courseTitle": "Course name",
+              "courseCode": "Code if mentioned",
+              "instructor": "Instructor name",
+              "semester": "Fall 2025 or similar",
+              "totalWeeks": 10
             }
             
-            Syllabus Content:
+            Syllabus:
             """ + truncateContent(content);
     }
 
     /**
-     * Make actual API call to Gemini AI using WebClient
+     * Call Gemini API with robust error handling
      */
     private String callGeminiAPI(String prompt) {
         try {
-            log.debug("Calling Gemini API via WebClient with prompt length: {}", prompt.length());
+            log.debug("Calling Gemini API with prompt length: {}", prompt.length());
 
-            // Prepare request payload
             Map<String, Object> requestBody = new HashMap<>();
             Map<String, Object> content = new HashMap<>();
             Map<String, Object> part = new HashMap<>();
@@ -199,26 +262,16 @@ public class GeminiAIAdapter implements AIService {
             content.put("parts", new Object[]{part});
             requestBody.put("contents", new Object[]{content});
 
-            // Configure safety settings
-            requestBody.put("safetySettings", new Object[]{
-                    Map.of(
-                            "category", "HARM_CATEGORY_HARASSMENT",
-                            "threshold", "BLOCK_MEDIUM_AND_ABOVE"
-                    )
-            });
-
             requestBody.put("generationConfig", Map.of(
-                    "temperature", 0.2,
+                    "temperature", 0.1,
                     "topK", 40,
                     "topP", 0.8,
-                    "maxOutputTokens", 2048
+                    "maxOutputTokens", 8192, // Increased even more
+                    "responseMimeType", "application/json"
             ));
 
             String url = BASE_URL + "?key=" + apiKey;
 
-            log.debug("Sending request to Gemini API");
-
-            // Use WebClient for the POST request
             JsonNode rootNode = webClient.post()
                     .uri(url)
                     .header(HttpHeaders.USER_AGENT, "SyllabusAI/1.0")
@@ -230,158 +283,70 @@ public class GeminiAIAdapter implements AIService {
                     .block();
 
             if (rootNode == null) {
-                throw new RuntimeException("Gemini API returned null body");
+                log.error("Gemini returned null");
+                return "[]";
             }
 
-            // Parse response
-            String result = rootNode.path("candidates")
-                    .get(0)
-                    .path("content")
-                    .path("parts")
-                    .get(0)
-                    .path("text")
-                    .asText();
+            JsonNode candidatesNode = rootNode.path("candidates");
+            if (candidatesNode.isMissingNode() || candidatesNode.isEmpty()) {
+                log.error("No candidates in response");
+                return "[]";
+            }
+
+            JsonNode firstCandidate = candidatesNode.get(0);
+            if (firstCandidate == null) {
+                log.error("First candidate is null");
+                return "[]";
+            }
+
+            String finishReason = firstCandidate.path("finishReason").asText("");
+            if ("MAX_TOKENS".equals(finishReason)) {
+                log.error("Response truncated due to MAX_TOKENS!");
+                // Try to parse partial response
+                JsonNode contentNode = firstCandidate.path("content");
+                JsonNode partsNode = contentNode.path("parts");
+                if (!partsNode.isEmpty()) {
+                    String partial = partsNode.get(0).path("text").asText("");
+                    log.warn("Got partial response, length: {}", partial.length());
+                    return partial.isEmpty() ? "[]" : partial;
+                }
+                return "[]";
+            }
+            if ("SAFETY".equals(finishReason)) {
+                log.error("Response blocked by safety filters");
+                return "[]";
+            }
+
+            JsonNode contentNode = firstCandidate.path("content");
+            JsonNode partsNode = contentNode.path("parts");
+            if (partsNode.isMissingNode() || partsNode.isEmpty()) {
+                log.error("No parts in content");
+                return "[]";
+            }
+
+            JsonNode firstPart = partsNode.get(0);
+            if (firstPart == null) {
+                log.error("First part is null");
+                return "[]";
+            }
+
+            String result = firstPart.path("text").asText("");
 
             if (result.isEmpty()) {
-                if ("SAFETY".equals(rootNode.path("candidates").get(0).path("finishReason").asText())) {
-                    log.error("Gemini API call blocked for safety reasons.");
-                    throw new RuntimeException("API call blocked due to safety settings.");
-                }
-                log.warn("Gemini API returned an empty text result.");
+                log.warn("Empty text in response");
+                return "[]";
             }
 
-            log.debug("Gemini API response received, length: {}", result.length());
+            log.info("Gemini API success, response length: {}", result.length());
             return result;
 
         } catch (WebClientResponseException e) {
-            log.error("Gemini API call failed with status {}: {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            log.error("Gemini HTTP error {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return "[]";
         } catch (Exception e) {
-            log.error("Gemini API call failed: {}", e.getMessage(), e);
+            log.error("Gemini API failed: {}", e.getMessage(), e);
+            return "[]";
         }
-
-        // Return demo data if API call fails
-        log.warn("Gemini API call failed, returning demo data.");
-        return getDemoFallback(prompt);
-    }
-
-    private String getDemoFallback(String prompt) {
-        if (prompt.contains("topics")) return getDemoTopics();
-        if (prompt.contains("deadlines")) return getDemoDeadlines();
-        if (prompt.contains("materials")) return getDemoMaterials();
-        if (prompt.contains("structure")) return getDemoSyllabusStructure();
-        return "{}";
-    }
-
-    private String getDemoTopics() {
-        return """
-            [
-              {
-                "id": 1,
-                "title": "Introduction to Web Development",
-                "week": 1,
-                "description": "Overview of web technologies, HTML basics, and development tools",
-                "difficultyLevel": "EASY"
-              },
-              {
-                "id": 2,
-                "title": "CSS and Styling",
-                "week": 2,
-                "description": "CSS fundamentals, selectors, box model, and responsive design",
-                "difficultyLevel": "EASY"
-              },
-              {
-                "id": 3,
-                "title": "JavaScript Fundamentals",
-                "week": 3,
-                "description": "Variables, functions, DOM manipulation, and event handling",
-                "difficultyLevel": "MEDIUM"
-              },
-              {
-                "id": 4,
-                "title": "Advanced JavaScript and APIs",
-                "week": 4,
-                "description": "Async programming, REST APIs, and modern JavaScript features",
-                "difficultyLevel": "HARD"
-              }
-            ]
-            """;
-    }
-
-    private String getDemoDeadlines() {
-        return """
-            [
-              {
-                "id": 1,
-                "title": "HTML/CSS Project",
-                "dueDate": "2025-11-20",
-                "type": "PROJECT",
-                "description": "Build a responsive portfolio website using HTML and CSS"
-              },
-              {
-                "id": 2,
-                "title": "Midterm Exam",
-                "dueDate": "2025-12-01",
-                "type": "EXAM",
-                "description": "Covers HTML, CSS, and basic JavaScript concepts"
-              },
-              {
-                "id": 3,
-                "title": "JavaScript Application",
-                "dueDate": "2025-12-15",
-                "type": "ASSIGNMENT",
-                "description": "Create an interactive web application using JavaScript"
-              }
-            ]
-            """;
-    }
-
-    private String getDemoMaterials() {
-        return """
-            [
-              {
-                "id": 1,
-                "title": "MDN Web Docs - HTML Guide",
-                "type": "WEBSITE",
-                "url": "https://developer.mozilla.org/en-US/docs/Web/HTML"
-              },
-              {
-                "id": 2,
-                "title": "CSS: The Definitive Guide, 4th Edition",
-                "type": "TEXTBOOK",
-                "url": ""
-              },
-              {
-                "id": 3,
-                "title": "JavaScript: The Good Parts",
-                "type": "READING",
-                "url": ""
-              }
-            ]
-            """;
-    }
-
-    private String getDemoSyllabusStructure() {
-        return """
-            {
-              "courseTitle": "Introduction to Web Development",
-              "courseCode": "CS101",
-              "instructor": "Dr. Jane Smith",
-              "credits": 3,
-              "semester": "Fall 2025",
-              "learningObjectives": [
-                "Understand web technologies",
-                "Build responsive websites",
-                "Implement interactive features",
-                "Work with web APIs"
-              ],
-              "gradingBreakdown": {
-                "Projects": 40,
-                "Exams": 30,
-                "Assignments": 20,
-                "Participation": 10
-              }
-            }
-            """;
     }
 
     private String truncateContent(String content) {
@@ -389,11 +354,11 @@ public class GeminiAIAdapter implements AIService {
             return content;
         }
 
-        log.warn("Content too long ({} chars), truncating to {}", content.length(), MAX_CONTENT_LENGTH);
+        log.warn("Content truncated from {} to {} chars", content.length(), MAX_CONTENT_LENGTH);
         int halfLimit = MAX_CONTENT_LENGTH / 2;
         String beginning = content.substring(0, halfLimit);
         String end = content.substring(content.length() - halfLimit);
 
-        return beginning + "\n\n...[CONTENT TRUNCATED FOR LENGTH]...\n\n" + end;
+        return beginning + "\n\n...[TRUNCATED]...\n\n" + end;
     }
 }
