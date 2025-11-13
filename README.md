@@ -63,7 +63,7 @@ deadlines
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Spring Boot 3.x, Java 17+
+- **Backend**: Spring Boot 3.x, Java 21
 - **Database**: PostgreSQL with JPA/Hibernate
 - **PDF Processing**: Apache PDFBox
 - **Build Tool**: Maven
@@ -86,7 +86,7 @@ com.syllabusai/
 ## 🔧 Installation & Setup
 
 ### Prerequisites
-- Java 17 or higher
+- Java 21 or higher
 - Maven 3.6+
 - PostgreSQL database
 
@@ -184,12 +184,10 @@ The application uses JPA with the following key configurations:
 
 ## 🔮 Future Enhancements
 
-- AI-powered syllabus content analysis
 - Integration with learning management systems
 - Advanced search and filtering capabilities
 - Export functionality for structured data
-- User authentication and authorization
-- Real-time processing status updates
+
 
 ## 📄 License
 
@@ -198,3 +196,4 @@ This project is licensed under the MIT License.
 ---
 
 *Built with Spring Boot and ❤️ for educational purposes*
+
