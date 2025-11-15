@@ -30,7 +30,6 @@ public class GeminiAIAdapter implements AIService {
     private static final int MAX_CONTENT_LENGTH = 25000;
     private static final Duration API_TIMEOUT = Duration.ofSeconds(45);
 
-    // Default semester start date (September 1st of current year)
     private static final LocalDate DEFAULT_SEMESTER_START = LocalDate.now().withMonth(9).withDayOfMonth(1);
 
     @Override
@@ -91,9 +90,6 @@ public class GeminiAIAdapter implements AIService {
         return "demo-key-placeholder".equals(apiKey) || apiKey == null || apiKey.trim().isEmpty();
     }
 
-    /**
-     * Smart topic extraction that reads from course plan table
-     */
     private String createSmartTopicExtractionPrompt(String content) {
         String semesterStart = DEFAULT_SEMESTER_START.format(DateTimeFormatter.ISO_DATE);
 
@@ -132,9 +128,6 @@ public class GeminiAIAdapter implements AIService {
             """ + truncateContent(content);
     }
 
-    /**
-     * Smart deadline extraction with date calculation
-     */
     private String createSmartDeadlineExtractionPrompt(String content) {
         String semesterStart = DEFAULT_SEMESTER_START.format(DateTimeFormatter.ISO_DATE);
 
@@ -185,9 +178,6 @@ public class GeminiAIAdapter implements AIService {
             """.formatted(semesterStart) + truncateContent(content);
     }
 
-    /**
-     * Smart material extraction - per topic
-     */
     private String createSmartMaterialExtractionPrompt(String content) {
         return """
             You are analyzing a university syllabus. Extract ALL learning materials/resources mentioned.
@@ -247,9 +237,6 @@ public class GeminiAIAdapter implements AIService {
             """ + truncateContent(content);
     }
 
-    /**
-     * Call Gemini API with robust error handling
-     */
     private String callGeminiAPI(String prompt) {
         try {
             log.debug("Calling Gemini API with prompt length: {}", prompt.length());
