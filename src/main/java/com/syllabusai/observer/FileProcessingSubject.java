@@ -37,7 +37,6 @@ public class FileProcessingSubject implements ProgressSubject {
                 observer.update(progress, message);
             } catch (Exception e) {
                 log.warn("Progress observer failed: {}", e.getMessage());
-                // Continue with other observers
             }
         }
     }
@@ -68,9 +67,6 @@ public class FileProcessingSubject implements ProgressSubject {
         }
     }
 
-    /**
-     * Get current observer count for monitoring
-     */
     public int getObserverCount() {
         return observers.size();
     }

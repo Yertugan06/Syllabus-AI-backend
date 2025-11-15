@@ -13,6 +13,6 @@ import lombok.NoArgsConstructor;
 public class MaterialDTO {
     private Long id;
     private String title;
-    private Material.MaterialType type;  // Use enum from entity
+    private Material.MaterialType type;
     private String url;
 }

@@ -15,14 +15,12 @@ public class AIDifficultyDecorator extends SyllabusDecorator {
 
     private final AIService aiService;
 
-    // Primary constructor for Spring DI
     @Autowired
     public AIDifficultyDecorator(AIService aiService) {
         super();
         this.aiService = aiService;
     }
 
-    // Alternative constructor for manual wrapping
     public AIDifficultyDecorator(SyllabusContent content, AIService aiService) {
         super(content);
         this.aiService = aiService;
@@ -55,7 +53,6 @@ public class AIDifficultyDecorator extends SyllabusDecorator {
         content.add("AI Difficulty Analysis: Topics analyzed with Gemini AI");
         content.add("Enhanced Topics Count: " + topics.size());
 
-        // Add difficulty summary
         long easyCount = topics.stream().filter(t -> t.getDifficultyLevel() == Topic.DifficultyLevel.EASY).count();
         long mediumCount = topics.stream().filter(t -> t.getDifficultyLevel() == Topic.DifficultyLevel.MEDIUM).count();
         long hardCount = topics.stream().filter(t -> t.getDifficultyLevel() == Topic.DifficultyLevel.HARD).count();
@@ -165,7 +162,6 @@ public class AIDifficultyDecorator extends SyllabusDecorator {
         String text = (topic.getTitle() + " " +
                 (topic.getDescription() != null ? topic.getDescription() : "")).toLowerCase();
 
-        // Simple fallback analysis
         if (text.contains("introduction") || text.contains("overview") || text.contains("basic")) {
             return Topic.DifficultyLevel.EASY;
         } else if (text.contains("advanced") || text.contains("complex") || text.contains("research")) {

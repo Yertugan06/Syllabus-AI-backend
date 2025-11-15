@@ -14,9 +14,9 @@ public class SyllabusMapper {
 
         return SyllabusDTO.builder()
                 .id(syllabus.getId())
-                .fileName(syllabus.getFilename())  // FIXED: getFileName() not getFilename()
+                .fileName(syllabus.getFilename())
                 .uploadDate(syllabus.getUploadDate())
-                .status("PROCESSED")  // Default status
+                .status("PROCESSED")
                 .build();
     }
 
@@ -27,7 +27,7 @@ public class SyllabusMapper {
 
         return Syllabus.builder()
                 .id(dto.getId())
-                .filename(dto.getFileName())  // FIXED: fileName not filename
+                .filename(dto.getFileName())
                 .uploadDate(dto.getUploadDate())
                 .build();
     }

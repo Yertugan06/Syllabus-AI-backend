@@ -42,7 +42,6 @@ public class SyllabusProcessingFacade {
         try {
             progressSubject.notifyProgress(10, "Starting file processing");
 
-            // Use the existing service method that works
             progressSubject.notifyProgress(50, "Uploading and parsing syllabus");
             SyllabusDTO result = syllabusService.uploadAndParse(file, userEmail);
 
@@ -60,12 +59,10 @@ public class SyllabusProcessingFacade {
 
     public SyllabusOverviewDTO getSyllabusOverview(Long syllabusId) {
         try {
-            // Get data using existing service methods
             List<Topic> topics = syllabusService.getTopicsBySyllabusId(syllabusId);
             List<Deadline> deadlines = syllabusService.getDeadlinesBySyllabusId(syllabusId);
             List<Material> materials = syllabusService.getMaterialsBySyllabusId(syllabusId);
 
-            // Get syllabus info from topics (first topic's syllabus)
             Syllabus syllabus = null;
             if (!topics.isEmpty()) {
                 syllabus = topics.get(0).getSyllabus();
@@ -79,7 +76,6 @@ public class SyllabusProcessingFacade {
                 throw new RuntimeException("Syllabus not found or has no content");
             }
 
-            // Convert to DTOs
             SyllabusDTO syllabusDTO = convertToSyllabusDTO(syllabus);
             List<TopicDTO> topicDTOs = topics.stream()
                     .map(TopicMapper::toDTO)

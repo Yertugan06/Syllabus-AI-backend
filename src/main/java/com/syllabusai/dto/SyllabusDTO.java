@@ -15,7 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 public class SyllabusDTO {
     private Long id;
-    private String fileName;  // Must match entity field name
+    private String fileName;
     private String status;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

@@ -1,4 +1,3 @@
-// exception/GlobalExceptionHandler.java
 package com.syllabusai.exception;
 
 import lombok.extern.slf4j.Slf4j;

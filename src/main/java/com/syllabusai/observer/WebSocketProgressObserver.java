@@ -1,4 +1,3 @@
-// observer/WebSocketProgressObserver.java
 package com.syllabusai.observer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,17 +20,11 @@ public class WebSocketProgressObserver implements ProgressObserver {
     private final Map<String, WebSocketSession> activeSessions = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
 
-    /**
-     * Register a WebSocket session for progress updates
-     */
     public void registerSession(String sessionId, WebSocketSession session) {
         activeSessions.put(sessionId, session);
         log.debug("Registered WebSocket session: {}", sessionId);
     }
 
-    /**
-     * Unregister a WebSocket session
-     */
     public void unregisterSession(String sessionId) {
         activeSessions.remove(sessionId);
         log.debug("Unregistered WebSocket session: {}", sessionId);
@@ -55,9 +48,6 @@ public class WebSocketProgressObserver implements ProgressObserver {
         log.error("WebSocket processing error: {}", error);
     }
 
-    /**
-     * Broadcast message to all active WebSocket sessions
-     */
     private void broadcastMessage(String message) {
         activeSessions.values().forEach(session -> {
             try {
@@ -66,7 +56,6 @@ public class WebSocketProgressObserver implements ProgressObserver {
                         session.sendMessage(new TextMessage(message));
                     }
                 } else {
-                    // Clean up closed sessions
                     unregisterSession(session.getId());
                 }
             } catch (IOException e) {
@@ -146,16 +135,10 @@ public class WebSocketProgressObserver implements ProgressObserver {
         }
     }
 
-    /**
-     * Get active session count for monitoring
-     */
     public int getActiveSessionCount() {
         return activeSessions.size();
     }
 
-    /**
-     * Send custom notification to specific session
-     */
     public void sendNotification(String sessionId, String type, String message) {
         WebSocketSession session = activeSessions.get(sessionId);
         if (session != null && session.isOpen()) {

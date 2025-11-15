@@ -253,7 +253,7 @@ public class GeminiAIAdapter implements AIService {
                     "temperature", 0.1,
                     "topK", 40,
                     "topP", 0.8,
-                    "maxOutputTokens", 8192, // Increased even more
+                    "maxOutputTokens", 8192,
                     "responseMimeType", "application/json"
             ));
 
@@ -289,7 +289,6 @@ public class GeminiAIAdapter implements AIService {
             String finishReason = firstCandidate.path("finishReason").asText("");
             if ("MAX_TOKENS".equals(finishReason)) {
                 log.error("Response truncated due to MAX_TOKENS!");
-                // Try to parse partial response
                 JsonNode contentNode = firstCandidate.path("content");
                 JsonNode partsNode = contentNode.path("parts");
                 if (!partsNode.isEmpty()) {
