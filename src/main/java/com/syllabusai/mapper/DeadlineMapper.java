@@ -15,7 +15,7 @@ public class DeadlineMapper {
         return DeadlineDTO.builder()
                 .id(deadline.getId())
                 .title(deadline.getTitle())
-                .date(deadline.getDate())  // Match entity field name
+                .date(deadline.getDate())
                 .type(deadline.getType())
                 .description(deadline.getDescription())
                 .build();
