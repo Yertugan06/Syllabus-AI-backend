@@ -92,4 +92,38 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Registration failed");
         }
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Not authenticated");
+            }
+
+            String token = authHeader.substring(7);
+            System.out.println("Token received: " + token);
+
+            if (token.startsWith("demo-token-")) {
+                String[] parts = token.split("-");
+                if (parts.length >= 3) {
+                    Long userId = Long.parseLong(parts[2]);
+                    Optional<User> user = userRepository.findById(userId);
+
+                    if (user.isPresent()) {
+                        return ResponseEntity.ok(Map.of(
+                                "id", user.get().getId(),
+                                "email", user.get().getEmail(),
+                                "firstName", user.get().getFirstName(),
+                                "lastName", user.get().getLastName()
+                        ));
+                    }
+                }
+            }
+
+            return ResponseEntity.status(401).body("Invalid token");
+
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body("Authentication failed");
+        }
+    }
 }
