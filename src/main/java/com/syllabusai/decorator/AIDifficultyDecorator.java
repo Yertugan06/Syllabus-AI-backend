@@ -18,22 +18,26 @@ public class AIDifficultyDecorator extends SyllabusDecorator {
     @Autowired
     public AIDifficultyDecorator(AIService aiService) {
         super();
+        log.debug("Constructor AIDifficultyDecorator(AIService) called");
         this.aiService = aiService;
     }
 
     public AIDifficultyDecorator(SyllabusContent content, AIService aiService) {
         super(content);
+        log.debug("Constructor AIDifficultyDecorator(SyllabusContent, AIService) called"); 
         this.aiService = aiService;
     }
 
     @Override
     public SyllabusContent wrap(SyllabusContent content) {
+        log.debug("wrap() called");
         this.wrappedContent = content;
         return this;
     }
 
     @Override
     public List<Topic> getTopics() {
+        log.debug("getTopics() called");
         if (wrappedContent == null) {
             log.warn("No wrapped content available");
             return new ArrayList<>();
@@ -44,12 +48,14 @@ public class AIDifficultyDecorator extends SyllabusDecorator {
 
     @Override
     public List<String> getEnhancedContent() {
+        log.debug("getEnhancedContent() called");
         if (wrappedContent == null) {
             return List.of("AI Difficulty Analysis: No content available");
         }
 
         List<String> content = new ArrayList<>(wrappedContent.getEnhancedContent());
         List<Topic> topics = getTopics();
+
         content.add("AI Difficulty Analysis: Topics analyzed with Gemini AI");
         content.add("Enhanced Topics Count: " + topics.size());
 
