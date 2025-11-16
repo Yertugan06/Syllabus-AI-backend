@@ -35,7 +35,7 @@ public class GeminiAIAdapter implements AIService {
 
     @Override
     public String extractTopics(String content) {
-        log.debug("Entered extractTopics method"); // <-- добавлено
+        log.debug("Entered extractTopics method"); //
         if (isDemoMode()) {
             log.warn("API key not configured, returning empty");
             return "[]";
@@ -50,7 +50,7 @@ public class GeminiAIAdapter implements AIService {
 
     @Override
     public String extractDeadlines(String content) {
-        log.debug("Entered extractDeadlines method"); // <-- добавлено
+        log.debug("Entered extractDeadlines method"); //
         if (isDemoMode()) {
             log.warn("API key not configured, returning empty");
             return "[]";
@@ -64,7 +64,7 @@ public class GeminiAIAdapter implements AIService {
 
     @Override
     public String extractMaterials(String content) {
-        log.debug("Entered extractMaterials method"); // <-- добавлено
+        log.debug("Entered extractMaterials method"); //
         if (isDemoMode()) {
             log.warn("API key not configured, returning empty");
             return "[]";
@@ -78,7 +78,7 @@ public class GeminiAIAdapter implements AIService {
 
     @Override
     public String analyzeSyllabusStructure(String content) {
-        log.debug("Entered analyzeSyllabusStructure method"); // <-- добавлено
+        log.debug("Entered analyzeSyllabusStructure method"); //
         if (isDemoMode()) return "{}";
         String prompt = createStructureAnalysisPrompt(content);
         return callGeminiAPI(prompt);
@@ -87,7 +87,7 @@ public class GeminiAIAdapter implements AIService {
 
     @Override
     public String generateText(String prompt) {
-        log.debug("Entered generateText method"); // <-- добавлено
+        log.debug("Entered generateText method"); //
         if (isDemoMode()) return "MEDIUM";
         return callGeminiAPI(prompt);
     }
@@ -95,19 +95,19 @@ public class GeminiAIAdapter implements AIService {
 
     @Override
     public String analyzeDocument(byte[] documentBytes, String mimeType, String prompt) {
-        log.debug("Entered analyzeDocument method"); // <-- добавлено
+        log.debug("Entered analyzeDocument method"); //
         return "{}";
     }
 
 
     private boolean isDemoMode() {
-        log.debug("Checking demo mode"); // <-- добавлено
+        log.debug("Checking demo mode"); //
         return "demo-key-placeholder".equals(apiKey) || apiKey == null || apiKey.trim().isEmpty();
     }
 
 
     private String createSmartTopicExtractionPrompt(String content) {
-        log.debug("Creating topic extraction prompt"); // <-- добавлено
+        log.debug("Creating topic extraction prompt"); //
         String semesterStart = DEFAULT_SEMESTER_START.format(DateTimeFormatter.ISO_DATE);
 
         return """
@@ -147,7 +147,7 @@ public class GeminiAIAdapter implements AIService {
 
 
     private String createSmartDeadlineExtractionPrompt(String content) {
-        log.debug("Creating deadline extraction prompt"); // <-- добавлено
+        log.debug("Creating deadline extraction prompt"); //
         String semesterStart = DEFAULT_SEMESTER_START.format(DateTimeFormatter.ISO_DATE);
 
         return """
@@ -199,7 +199,7 @@ public class GeminiAIAdapter implements AIService {
 
 
     private String createSmartMaterialExtractionPrompt(String content) {
-        log.debug("Creating material extraction prompt"); // <-- добавлено
+        log.debug("Creating material extraction prompt"); //
         return """
             You are analyzing a university syllabus. Extract ALL learning materials/resources mentioned.
             
@@ -245,7 +245,7 @@ public class GeminiAIAdapter implements AIService {
 
 
     private String createStructureAnalysisPrompt(String content) {
-        log.debug("Creating structure analysis prompt"); // <-- добавлено
+        log.debug("Creating structure analysis prompt"); //
         return """
             Extract basic course information:
             {
@@ -260,7 +260,6 @@ public class GeminiAIAdapter implements AIService {
             """ + truncateContent(content);
     }
 
-    // --- callGeminiAPI and truncateContent methods остались без изменений, добавлен лог внутри методов если нужно ---
 
 
     private String callGeminiAPI(String prompt) {
