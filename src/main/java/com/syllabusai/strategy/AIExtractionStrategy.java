@@ -29,7 +29,7 @@ public class AIExtractionStrategy implements ExtractionStrategy {
     public List<Topic> extractTopics(String content) {
         if (isDemoMode()) {
             log.warn("AI API key not configured, skipping AI extraction for topics");
-            return new ArrayList<>(); // Return empty so fallback can be used
+            return new ArrayList<>();
         }
 
         try {
@@ -46,7 +46,7 @@ public class AIExtractionStrategy implements ExtractionStrategy {
     public List<Deadline> extractDeadlines(String content) {
         if (isDemoMode()) {
             log.warn("AI API key not configured, skipping AI extraction for deadlines");
-            return new ArrayList<>(); // Return empty so fallback can be used
+            return new ArrayList<>();
         }
 
         try {
@@ -63,7 +63,7 @@ public class AIExtractionStrategy implements ExtractionStrategy {
     public List<Material> extractMaterials(String content) {
         if (isDemoMode()) {
             log.warn("AI API key not configured, skipping AI extraction for materials");
-            return new ArrayList<>(); // Return empty so fallback can be used
+            return new ArrayList<>();
         }
 
         try {
@@ -91,15 +91,15 @@ public class AIExtractionStrategy implements ExtractionStrategy {
 
     @Override
     public int getPriority() {
-        return isDemoMode() ? 999 : 1; // Lowest priority if in demo mode
+        return isDemoMode() ? 999 : 1;
     }
 
     @Override
     public int getConfidence(String content) {
         if (isDemoMode()) {
-            return 0; // Zero confidence in demo mode
+            return 0;
         }
-        return 85; // High confidence when properly configured
+        return 85;
     }
 
     @Override
@@ -118,7 +118,6 @@ public class AIExtractionStrategy implements ExtractionStrategy {
         List<T> results = new ArrayList<>();
 
         try {
-            // Clean the response - remove markdown code blocks if present
             String cleanJson = jsonResponse.trim();
             if (cleanJson.startsWith("```json")) {
                 cleanJson = cleanJson.substring(7);
@@ -185,7 +184,7 @@ public class AIExtractionStrategy implements ExtractionStrategy {
                 case "deadlines":
                     String dateStr = node.path("date").asText();
                     if (dateStr.isEmpty()) {
-                        dateStr = node.path("dueDate").asText(); // Try alternative field name
+                        dateStr = node.path("dueDate").asText();
                     }
                     LocalDateTime date = parseDate(dateStr);
 
@@ -198,7 +197,6 @@ public class AIExtractionStrategy implements ExtractionStrategy {
                     return (T) deadline;
 
                 case "materials":
-                    // Try both "link" and "url" field names
                     String link = node.path("link").asText("");
                     if (link.isEmpty()) {
                         link = node.path("url").asText("");
@@ -206,7 +204,6 @@ public class AIExtractionStrategy implements ExtractionStrategy {
 
                     String materialTitle = node.path("title").asText("Unnamed Material");
 
-                    // Additional safety: truncate if still too long
                     if (materialTitle.length() > 900) {
                         log.warn("Material title too long ({}), truncating: {}",
                                 materialTitle.length(), materialTitle.substring(0, 50) + "...");
@@ -259,11 +256,9 @@ public class AIExtractionStrategy implements ExtractionStrategy {
         }
 
         try {
-            // Try parsing as date only (YYYY-MM-DD)
             if (dateStr.length() == 10) {
                 return LocalDateTime.parse(dateStr + "T23:59:59");
             }
-            // Try parsing as full datetime
             return LocalDateTime.parse(dateStr);
         } catch (Exception e) {
             log.debug("Failed to parse date: {}", dateStr);
@@ -271,9 +266,6 @@ public class AIExtractionStrategy implements ExtractionStrategy {
         }
     }
 
-    /**
-     * Truncate string to maximum length
-     */
     private String truncate(String text, int maxLength) {
         if (text == null || text.length() <= maxLength) {
             return text;
