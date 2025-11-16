@@ -18,9 +18,6 @@ public class ExtractionContext {
 
     private final List<ExtractionStrategy> strategies;
 
-    /**
-     * Extract topics using the best available strategy with intelligent fallback
-     */
     public List<Topic> extractTopics(String content) {
         ExtractionStrategy strategy = selectBestStrategy(content);
         log.info("Selected strategy for topic extraction: {} (confidence: {}%)",
@@ -29,7 +26,6 @@ public class ExtractionContext {
         try {
             List<Topic> topics = strategy.extractTopics(content);
 
-            // If primary strategy returns empty, try fallback
             if (topics.isEmpty()) {
                 log.warn("Primary strategy {} returned no topics, trying fallback", strategy.getName());
                 topics = tryFallbackExtraction(content, "topics");
@@ -44,9 +40,6 @@ public class ExtractionContext {
         }
     }
 
-    /**
-     * Extract deadlines using the best available strategy with intelligent fallback
-     */
     public List<Deadline> extractDeadlines(String content) {
         ExtractionStrategy strategy = selectBestStrategy(content);
         log.info("Selected strategy for deadline extraction: {} (confidence: {}%)",
@@ -55,7 +48,6 @@ public class ExtractionContext {
         try {
             List<Deadline> deadlines = strategy.extractDeadlines(content);
 
-            // If primary strategy returns empty, try fallback
             if (deadlines.isEmpty()) {
                 log.warn("Primary strategy {} returned no deadlines, trying fallback", strategy.getName());
                 deadlines = tryFallbackExtraction(content, "deadlines");
@@ -70,9 +62,6 @@ public class ExtractionContext {
         }
     }
 
-    /**
-     * Extract materials using the best available strategy with intelligent fallback
-     */
     public List<Material> extractMaterials(String content) {
         ExtractionStrategy strategy = selectBestStrategy(content);
         log.info("Selected strategy for material extraction: {} (confidence: {}%)",
@@ -81,7 +70,6 @@ public class ExtractionContext {
         try {
             List<Material> materials = strategy.extractMaterials(content);
 
-            // If primary strategy returns empty, try fallback
             if (materials.isEmpty()) {
                 log.warn("Primary strategy {} returned no materials, trying fallback", strategy.getName());
                 materials = tryFallbackExtraction(content, "materials");
@@ -96,14 +84,10 @@ public class ExtractionContext {
         }
     }
 
-    /**
-     * Try fallback extraction strategies when primary fails
-     */
     @SuppressWarnings("unchecked")
     private <T> List<T> tryFallbackExtraction(String content, String type) {
         log.info("Attempting fallback extraction for {}", type);
 
-        // Try all strategies except the one that already failed
         for (ExtractionStrategy strategy : strategies) {
             if (!strategy.getName().equals("AI_EXTRACTION_STRATEGY")) {
                 try {
@@ -131,15 +115,11 @@ public class ExtractionContext {
         return List.of();
     }
 
-    /**
-     * Select the best strategy based on priority and confidence
-     */
     public ExtractionStrategy selectBestStrategy(String content) {
         if (content == null || content.trim().isEmpty()) {
             throw new IllegalArgumentException("Content cannot be null or empty");
         }
 
-        // First, try strategies by priority
         Optional<ExtractionStrategy> priorityStrategy = strategies.stream()
                 .filter(strategy -> strategy.supports(content))
                 .min(Comparator.comparingInt(ExtractionStrategy::getPriority));
@@ -148,7 +128,6 @@ public class ExtractionContext {
             ExtractionStrategy strategy = priorityStrategy.get();
             int confidence = strategy.getConfidence(content);
 
-            // Only use if confidence is reasonable
             if (confidence >= 50) {
                 return strategy;
             }
@@ -157,7 +136,6 @@ public class ExtractionContext {
                     strategy.getName(), confidence);
         }
 
-        // Fallback: use strategy with highest confidence
         Optional<ExtractionStrategy> confidenceStrategy = strategies.stream()
                 .filter(strategy -> strategy.supports(content))
                 .max(Comparator.comparingInt(strategy -> strategy.getConfidence(content)));
@@ -169,7 +147,6 @@ public class ExtractionContext {
             return strategy;
         }
 
-        // Last resort: use any strategy that can handle the content
         Optional<ExtractionStrategy> anyStrategy = strategies.stream()
                 .filter(strategy -> strategy.supports(content))
                 .findFirst();
@@ -182,9 +159,6 @@ public class ExtractionContext {
         throw new IllegalStateException("No suitable extraction strategy found for content");
     }
 
-    /**
-     * Get strategy analysis for debugging and monitoring
-     */
     public StrategyAnalysis analyzeStrategies(String content) {
         List<StrategyAnalysis.StrategyInfo> strategyInfos = strategies.stream()
                 .map(strategy -> new StrategyAnalysis.StrategyInfo(
@@ -199,9 +173,6 @@ public class ExtractionContext {
         return new StrategyAnalysis(content.length(), strategyInfos);
     }
 
-    /**
-     * Analysis result for strategy selection
-     */
     public static class StrategyAnalysis {
         private final int contentLength;
         private final List<StrategyInfo> strategies;
@@ -224,14 +195,12 @@ public class ExtractionContext {
                 this.confidence = confidence;
             }
 
-            // Getters
             public String getName() { return name; }
             public int getPriority() { return priority; }
             public boolean isSupported() { return supported; }
             public int getConfidence() { return confidence; }
         }
 
-        // Getters
         public int getContentLength() { return contentLength; }
         public List<StrategyInfo> getStrategies() { return strategies; }
     }

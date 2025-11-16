@@ -8,7 +8,6 @@ import java.util.List;
 public abstract class SyllabusDecorator implements SyllabusContent {
     protected SyllabusContent wrappedContent;
 
-    // Default constructor for Lombok/Spring
     public SyllabusDecorator() {
     }
 

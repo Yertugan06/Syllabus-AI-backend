@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
 @Component
 public class RegexExtractionStrategy implements ExtractionStrategy {
 
-    // Improved patterns
     private static final Pattern TOPIC_PATTERN = Pattern.compile(
             "(?i)(?:week|lecture|topic|chapter|module|session|lesson)\\s*(\\d+)[:\\-\\.]?\\s*([^\\n]{5,200})",
             Pattern.MULTILINE
@@ -58,7 +57,7 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
         }
 
         log.info("Regex strategy extracted {} topics", topics.size());
-        return topics; // Return empty list if none found - don't create defaults
+        return topics;
     }
 
     @Override
@@ -93,7 +92,6 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
             }
         }
 
-        // For a 10-week program, create standard deadlines if none found
         if (deadlines.isEmpty()) {
             log.info("No explicit deadlines found, creating standard 10-week program deadlines");
             deadlines.addAll(createStandardDeadlines());
@@ -112,7 +110,6 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
             String type = matcher.group(1);
             String title = matcher.group(2).trim();
 
-            // Skip if title is too short or generic
             if (title.length() < 10 || isGenericMaterial(title)) {
                 continue;
             }
@@ -126,7 +123,6 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
             log.debug("Extracted material: {}", title);
         }
 
-        // DON'T create default materials - return empty if none found
         log.info("Regex strategy extracted {} materials", materials.size());
         return materials;
     }
@@ -138,7 +134,7 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
 
     @Override
     public int getPriority() {
-        return 50; // Lower priority than AI (higher number = lower priority)
+        return 50;
     }
 
     @Override
@@ -147,14 +143,12 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
             return 0;
         }
 
-        // Calculate confidence based on pattern matches
         int confidence = 30; // Base confidence
 
         if (TOPIC_PATTERN.matcher(content).find()) confidence += 20;
         if (DEADLINE_PATTERN.matcher(content).find()) confidence += 20;
         if (MATERIAL_PATTERN.matcher(content).find()) confidence += 15;
 
-        // Bonus for structured content
         if (content.toLowerCase().contains("week") && content.toLowerCase().contains("topic")) {
             confidence += 15;
         }
@@ -206,11 +200,6 @@ public class RegexExtractionStrategy implements ExtractionStrategy {
         return Material.MaterialType.READING;
     }
 
-    /**
-     * Create standard deadlines for a 10-week program
-     * Week 5: Midterm
-     * Week 10: Final/Endterm
-     */
     private List<Deadline> createStandardDeadlines() {
         List<Deadline> defaults = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();

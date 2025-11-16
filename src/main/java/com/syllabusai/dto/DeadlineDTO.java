@@ -18,8 +18,8 @@ public class DeadlineDTO {
     private String title;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime date;  // Changed from 'dueDate' to match entity field 'date'
+    private LocalDateTime date;
 
-    private Deadline.DeadlineType type;  // Use enum from entity
+    private Deadline.DeadlineType type;
     private String description;
 }

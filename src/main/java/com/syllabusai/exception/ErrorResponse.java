@@ -23,9 +23,8 @@ public class ErrorResponse {
     private String path;
 
     @Builder.Default
-    private String traceId = "N/A"; // For distributed tracing
+    private String traceId = "N/A";
 
-    // Additional fields for enhanced error reporting
     private String suggestion;
     private String documentation;
 }

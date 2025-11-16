@@ -15,5 +15,5 @@ public class TopicDTO {
     private String title;
     private String description;
     private Integer week;
-    private Topic.DifficultyLevel difficultyLevel;  // Use enum from entity
+    private Topic.DifficultyLevel difficultyLevel;
 }

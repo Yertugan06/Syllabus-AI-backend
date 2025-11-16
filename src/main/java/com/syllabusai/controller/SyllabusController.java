@@ -27,7 +27,6 @@ public class SyllabusController {
     private final SyllabusService syllabusService;
     private final UserRepository userRepository;
 
-    // POST /api/syllabus/upload - Upload syllabus PDF
     @PostMapping("/upload")
     public ResponseEntity<?> uploadSyllabus(
             @RequestParam("file") MultipartFile file,
@@ -49,7 +48,6 @@ public class SyllabusController {
         }
     }
 
-    // GET /api/syllabus/user - Get all syllabi for current user
     @GetMapping("/user")
     public ResponseEntity<?> getUserSyllabi(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
@@ -79,7 +77,6 @@ public class SyllabusController {
             List<Syllabus> syllabi = syllabusService.getUserSyllabi(userEmail);
             log.info("Found {} syllabi for user {}", syllabi.size(), userEmail);
 
-            // Convert to frontend-compatible format
             List<Map<String, Object>> response = syllabi.stream()
                     .map(s -> {
                         Map<String, Object> map = new HashMap<>();
@@ -102,7 +99,6 @@ public class SyllabusController {
         }
     }
 
-    // GET /api/syllabus/{id} - Retrieve parsed syllabus data
     @GetMapping("/{id}")
     public ResponseEntity<?> getSyllabus(@PathVariable Long id) {
         try {
@@ -115,7 +111,6 @@ public class SyllabusController {
         }
     }
 
-    // GET /api/syllabus/{id}/topics - Get list of topics
     @GetMapping("/{id}/topics")
     public ResponseEntity<?> getSyllabusTopics(@PathVariable Long id) {
         try {
@@ -123,7 +118,6 @@ public class SyllabusController {
             List<Topic> topics = syllabusService.getTopicsBySyllabusId(id);
             log.info("Found {} topics", topics.size());
 
-            // Convert to frontend-compatible format
             List<Map<String, Object>> response = topics.stream()
                     .map(t -> {
                         Map<String, Object> map = new HashMap<>();
@@ -144,7 +138,6 @@ public class SyllabusController {
         }
     }
 
-    // GET /api/syllabus/{id}/materials - Get list of materials
     @GetMapping("/{id}/materials")
     public ResponseEntity<?> getSyllabusMaterials(@PathVariable Long id) {
         try {
@@ -152,7 +145,6 @@ public class SyllabusController {
             List<Material> materials = syllabusService.getMaterialsBySyllabusId(id);
             log.info("Found {} materials", materials.size());
 
-            // Convert to frontend-compatible format
             List<Map<String, Object>> response = materials.stream()
                     .map(m -> {
                         Map<String, Object> map = new HashMap<>();
@@ -172,7 +164,6 @@ public class SyllabusController {
         }
     }
 
-    // GET /api/syllabus/{id}/deadlines - Get deadlines and exams
     @GetMapping("/{id}/deadlines")
     public ResponseEntity<?> getSyllabusDeadlines(@PathVariable Long id) {
         try {
@@ -180,13 +171,12 @@ public class SyllabusController {
             List<Deadline> deadlines = syllabusService.getDeadlinesBySyllabusId(id);
             log.info("Found {} deadlines", deadlines.size());
 
-            // Convert to frontend-compatible format
             List<Map<String, Object>> response = deadlines.stream()
                     .map(d -> {
                         Map<String, Object> map = new HashMap<>();
                         map.put("id", d.getId());
                         map.put("title", d.getTitle());
-                        map.put("dueDate", d.getDate()); // Frontend expects 'dueDate'
+                        map.put("dueDate", d.getDate());
                         map.put("type", d.getType().toString());
                         map.put("description", d.getDescription() != null ? d.getDescription() : "");
                         return map;
@@ -201,7 +191,6 @@ public class SyllabusController {
         }
     }
 
-    // GET /api/syllabus/{id}/overview - Get complete overview
     @GetMapping("/{id}/overview")
     public ResponseEntity<?> getSyllabusOverview(@PathVariable Long id) {
         try {
@@ -214,7 +203,6 @@ public class SyllabusController {
         }
     }
 
-    // DELETE /api/syllabus/{id} - Delete syllabus
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteSyllabus(@PathVariable Long id) {
         try {
@@ -227,10 +215,6 @@ public class SyllabusController {
         }
     }
 
-    /**
-     * Extract email from demo token
-     * Format: "demo-token-{userId}-{timestamp}"
-     */
     private String extractEmailFromToken(String token) {
         try {
             if (token == null || !token.startsWith("demo-token-")) {

@@ -48,7 +48,6 @@ public class GenericSyllabusParser implements SyllabusParser {
                 .build();
 
         try {
-            // Extract sequentially with delays to avoid rate limits
             extractWithStrategies(syllabus, textContent);
 
         } catch (Exception e) {
@@ -65,31 +64,23 @@ public class GenericSyllabusParser implements SyllabusParser {
         return syllabus;
     }
 
-    /**
-     * Extract content using strategy pattern with delays between API calls
-     */
     private void extractWithStrategies(Syllabus syllabus, String textContent) throws InterruptedException {
         log.debug("Starting sequential strategy-based extraction");
 
-        // Extract topics first
         log.info("=== Extracting TOPICS ===");
         List<Topic> topics = extractionContext.extractTopics(textContent);
         syllabus.getTopics().addAll(topics);
         log.info("Extracted {} topics", topics.size());
 
-        // Small delay to avoid rate limiting
         Thread.sleep(1000);
 
-        // Extract deadlines
         log.info("=== Extracting DEADLINES ===");
         List<Deadline> deadlines = extractionContext.extractDeadlines(textContent);
         syllabus.getDeadlines().addAll(deadlines);
         log.info("Extracted {} deadlines", deadlines.size());
 
-        // Small delay
         Thread.sleep(1000);
 
-        // Extract materials
         log.info("=== Extracting MATERIALS ===");
         List<Material> materials = extractionContext.extractMaterials(textContent);
         syllabus.getMaterials().addAll(materials);

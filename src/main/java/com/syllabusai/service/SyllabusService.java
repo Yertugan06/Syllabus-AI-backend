@@ -35,39 +35,30 @@ public class SyllabusService {
         try {
             progressSubject.notifyProgress(10, "Starting file processing");
 
-            // Validate input
             validateFile(file);
 
-            // Find user
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new SyllabusProcessingException("User not found: " + userEmail));
 
             progressSubject.notifyProgress(30, "User validated, starting PDF parsing");
 
-            // Parse syllabus using Factory Method pattern
             SyllabusParser parser = parserFactory.createParser(file);
             Syllabus parsedSyllabus = parser.parse(file);
 
             progressSubject.notifyProgress(60, "PDF parsed successfully, saving data");
 
-            // Set user
             parsedSyllabus.setUser(user);
 
-            // CRITICAL FIX: Properly establish bidirectional relationships
-            // This ensures the foreign key is set BEFORE save
             establishRelationships(parsedSyllabus);
 
-            // Save everything at once - cascade will handle children
             Syllabus savedSyllabus = syllabusRepository.save(parsedSyllabus);
             log.info("Syllabus saved successfully with ID: {}", savedSyllabus.getId());
 
-            // Log what was saved
             log.info("Saved {} topics, {} deadlines, {} materials",
                     savedSyllabus.getTopics().size(),
                     savedSyllabus.getDeadlines().size(),
                     savedSyllabus.getMaterials().size());
 
-            // Return simple DTO
             SyllabusDTO result = SyllabusDTO.builder()
                     .id(savedSyllabus.getId())
                     .fileName(savedSyllabus.getFilename())
@@ -88,14 +79,9 @@ public class SyllabusService {
         }
     }
 
-    /**
-     * CRITICAL: Establish bidirectional relationships before saving
-     * This ensures JPA knows about the relationships and sets foreign keys correctly
-     */
     private void establishRelationships(Syllabus syllabus) {
         log.info("Establishing bidirectional relationships for syllabus");
 
-        // Set syllabus reference on all topics
         if (syllabus.getTopics() != null) {
             log.info("Processing {} topics", syllabus.getTopics().size());
             for (Topic topic : syllabus.getTopics()) {
@@ -104,7 +90,6 @@ public class SyllabusService {
             }
         }
 
-        // Set syllabus reference on all deadlines
         if (syllabus.getDeadlines() != null) {
             log.info("Processing {} deadlines", syllabus.getDeadlines().size());
             for (Deadline deadline : syllabus.getDeadlines()) {
@@ -113,7 +98,6 @@ public class SyllabusService {
             }
         }
 
-        // Set syllabus reference on all materials
         if (syllabus.getMaterials() != null) {
             log.info("Processing {} materials", syllabus.getMaterials().size());
             for (Material material : syllabus.getMaterials()) {
