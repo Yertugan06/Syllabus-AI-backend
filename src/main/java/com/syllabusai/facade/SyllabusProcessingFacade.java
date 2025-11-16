@@ -139,17 +139,5 @@ public class SyllabusProcessingFacade {
                 .collect(Collectors.toList());
     }
 
-    private List<Deadline> getUpcomingDeadlines(List<Deadline> deadlines) {
-        if (deadlines == null || deadlines.isEmpty()) {
-            return List.of();
-        }
 
-        LocalDateTime now = LocalDateTime.now();
-
-        return deadlines.stream()
-                .filter(deadline -> deadline.getDate().isAfter(now))
-                .sorted(Comparator.comparing(Deadline::getDate))
-                .limit(5)
-                .collect(Collectors.toList());
-    }
 }
