@@ -13,7 +13,7 @@ spring:
   
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: false
     properties:
       hibernate:
@@ -37,13 +37,13 @@ server:
   compression:
     enabled: true
 
-# Gemini AI Configuration with proper fallback
+# Gemini AI  Configuration
 gemini:
   api-key: ${GEMINI_API_KEY:demo-key-placeholder}
   base-url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
   timeout: 30000
 
-# Logging Configuration - FIXED
+# Logging Configuration
 logging:
   level:
     com.syllabusai: DEBUG
@@ -66,7 +66,7 @@ app:
     allowed-origins: http://127.0.0.1:5500
 
 ---
-# Development Profile - FIXED
+# Development Profile
 spring:
   config:
     activate:
@@ -80,7 +80,7 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE  # Valid log level
 
 ---
-# Production Profile - FIXED
+# Production Profile
 spring:
   config:
     activate:
