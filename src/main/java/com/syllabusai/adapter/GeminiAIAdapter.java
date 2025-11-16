@@ -32,8 +32,10 @@ public class GeminiAIAdapter implements AIService {
 
     private static final LocalDate DEFAULT_SEMESTER_START = LocalDate.now().withMonth(9).withDayOfMonth(1);
 
+
     @Override
     public String extractTopics(String content) {
+        log.debug("Entered extractTopics method"); // <-- добавлено
         if (isDemoMode()) {
             log.warn("API key not configured, returning empty");
             return "[]";
@@ -41,11 +43,14 @@ public class GeminiAIAdapter implements AIService {
 
         String prompt = createSmartTopicExtractionPrompt(content);
         log.debug("Extracting topics with AI, content length: {}", content.length());
+
         return callGeminiAPI(prompt);
     }
 
+
     @Override
     public String extractDeadlines(String content) {
+        log.debug("Entered extractDeadlines method"); // <-- добавлено
         if (isDemoMode()) {
             log.warn("API key not configured, returning empty");
             return "[]";
@@ -56,8 +61,10 @@ public class GeminiAIAdapter implements AIService {
         return callGeminiAPI(prompt);
     }
 
+
     @Override
     public String extractMaterials(String content) {
+        log.debug("Entered extractMaterials method"); // <-- добавлено
         if (isDemoMode()) {
             log.warn("API key not configured, returning empty");
             return "[]";
@@ -68,29 +75,39 @@ public class GeminiAIAdapter implements AIService {
         return callGeminiAPI(prompt);
     }
 
+
     @Override
     public String analyzeSyllabusStructure(String content) {
+        log.debug("Entered analyzeSyllabusStructure method"); // <-- добавлено
         if (isDemoMode()) return "{}";
         String prompt = createStructureAnalysisPrompt(content);
         return callGeminiAPI(prompt);
     }
 
+
     @Override
     public String generateText(String prompt) {
+        log.debug("Entered generateText method"); // <-- добавлено
         if (isDemoMode()) return "MEDIUM";
         return callGeminiAPI(prompt);
     }
 
+
     @Override
     public String analyzeDocument(byte[] documentBytes, String mimeType, String prompt) {
+        log.debug("Entered analyzeDocument method"); // <-- добавлено
         return "{}";
     }
 
+
     private boolean isDemoMode() {
+        log.debug("Checking demo mode"); // <-- добавлено
         return "demo-key-placeholder".equals(apiKey) || apiKey == null || apiKey.trim().isEmpty();
     }
 
+
     private String createSmartTopicExtractionPrompt(String content) {
+        log.debug("Creating topic extraction prompt"); // <-- добавлено
         String semesterStart = DEFAULT_SEMESTER_START.format(DateTimeFormatter.ISO_DATE);
 
         return """
@@ -128,7 +145,9 @@ public class GeminiAIAdapter implements AIService {
             """ + truncateContent(content);
     }
 
+
     private String createSmartDeadlineExtractionPrompt(String content) {
+        log.debug("Creating deadline extraction prompt"); // <-- добавлено
         String semesterStart = DEFAULT_SEMESTER_START.format(DateTimeFormatter.ISO_DATE);
 
         return """
@@ -178,7 +197,9 @@ public class GeminiAIAdapter implements AIService {
             """.formatted(semesterStart) + truncateContent(content);
     }
 
+
     private String createSmartMaterialExtractionPrompt(String content) {
+        log.debug("Creating material extraction prompt"); // <-- добавлено
         return """
             You are analyzing a university syllabus. Extract ALL learning materials/resources mentioned.
             
@@ -222,7 +243,9 @@ public class GeminiAIAdapter implements AIService {
             """ + truncateContent(content);
     }
 
+
     private String createStructureAnalysisPrompt(String content) {
+        log.debug("Creating structure analysis prompt"); // <-- добавлено
         return """
             Extract basic course information:
             {
@@ -236,6 +259,9 @@ public class GeminiAIAdapter implements AIService {
             Syllabus:
             """ + truncateContent(content);
     }
+
+    // --- callGeminiAPI and truncateContent methods остались без изменений, добавлен лог внутри методов если нужно ---
+
 
     private String callGeminiAPI(String prompt) {
         try {
